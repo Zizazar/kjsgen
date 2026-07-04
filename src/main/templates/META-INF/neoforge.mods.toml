@@ -88,6 +88,31 @@ GUI Crafts generator for kubejs
     ordering="NONE"
     side="BOTH"
 
+# LDLib2 - base UI library, required
+[[dependencies.${mod_id}]]
+    modId="ldlib2"
+    type="required"
+    versionRange="[2.2,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# KubeJS - optional at runtime; only needed to actually load the exported scripts.
+# The mod warns in the export UI when KubeJS is not installed.
+[[dependencies.${mod_id}]]
+    modId="kubejs"
+    type="optional"
+    versionRange="[2101,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# JEI - optional, only used as a visual reference; layouts are bundled as templates.
+[[dependencies.${mod_id}]]
+    modId="jei"
+    type="optional"
+    versionRange="[19,)"
+    ordering="AFTER"
+    side="BOTH"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.

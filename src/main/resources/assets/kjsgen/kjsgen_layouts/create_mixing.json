@@ -1,0 +1,22 @@
+{
+  "id": "kjsgen:create_mixing",
+  "mod": "create",
+  "icon": "create:mechanical_mixer",
+  "width": 118,
+  "height": 58,
+  "slots": [
+    { "key": "in0", "role": "INPUT", "x": 0, "y": 0, "required": false, "item": true, "tag": true, "fluid": true, "count": true },
+    { "key": "in1", "role": "INPUT", "x": 18, "y": 0, "required": false, "item": true, "tag": true, "fluid": true, "count": true },
+    { "key": "in2", "role": "INPUT", "x": 0, "y": 18, "required": false, "item": true, "tag": true, "fluid": true, "count": true },
+    { "key": "in3", "role": "INPUT", "x": 18, "y": 18, "required": false, "item": true, "tag": true, "fluid": true, "count": true },
+    { "key": "output", "role": "OUTPUT", "x": 96, "y": 9, "required": true, "item": true, "fluid": true, "count": true, "chance": true }
+  ],
+  "decorations": [
+    { "type": "ARROW", "x": 56, "y": 10 }
+  ],
+  "parameters": [
+    { "key": "__template", "type": "STRING", "default": "event.recipes.create.mixing([{outputs}], [{inputs}])" }
+  ],
+  "codegen": "kjsgen:template",
+  "requiresMod": "create"
+}

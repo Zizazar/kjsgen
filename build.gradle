@@ -27,9 +27,40 @@ sourceSets.main.resources {
 }
 
 repositories {
-    // Add here additional repositories if required by some of the dependencies below.
-}
+    mavenCentral()
+    maven {
+        name = "FirstDark Snapshots"
+        url = "https://maven.firstdark.dev/snapshots"
+    }
+    maven {
+        url = "https://maven.latvian.dev/releases"
+    }
 
+    maven {
+        url = 'https://jitpack.io'
+    }
+
+    maven {
+        // location of the maven that hosts JEI files since January 2023
+        name = "Jared's maven"
+        url = "https://maven.blamejared.com/"
+    }
+    maven {
+        // location of a maven mirror for JEI files, as a fallback
+        name = "ModMaven"
+        url = "https://modmaven.dev"
+    }
+    maven {
+        // Create, Ponder, Flywheel
+        name = "Create"
+        url = "https://maven.createmod.net"
+    }
+    maven {
+        // Registrate (Create dependency)
+        name = "IThundxr Snapshots"
+        url = "https://maven.ithundxr.dev/snapshots"
+    }
+}
 base {
     archivesName = mod_id
 }
@@ -139,6 +170,30 @@ dependencies {
     // For more info:
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
+
+    // --- Dev-only mods, present in runClient/runServer so kjsgen can be tested against real
+    // recipe types and items. Declared as localRuntime so they are never published as
+    // dependencies of kjsgen (the mod itself needs none of them to compile).
+
+    implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}")
+
+    compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
+    runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
+
+    // KubeJS: to actually load the exported scripts in dev. Pulls rhino transitively.
+    localRuntime("dev.latvian.mods:kubejs-neoforge:${kubejs_version}")
+
+    // Mekanism: real recipe types for the bundled mekanism_* layouts.
+    localRuntime("mekanism:Mekanism:${mekanism_version}")
+
+    // Create (+ its runtime deps). The slim jar excludes bundled libraries, so Ponder,
+    // Flywheel and Registrate are declared explicitly (see the Create wiki).
+    localRuntime("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") {
+        transitive = false
+    }
+    localRuntime("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+    localRuntime("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
+    localRuntime("com.tterrag.registrate:Registrate:${registrate_version}")
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

@@ -1,0 +1,20 @@
+{
+  "id": "kjsgen:create_pressing",
+  "mod": "create",
+  "icon": "create:mechanical_press",
+  "width": 82,
+  "height": 38,
+  "slots": [
+    { "key": "input", "role": "INPUT", "x": 0, "y": 9, "required": true, "item": true, "tag": true },
+    { "key": "output", "role": "OUTPUT", "x": 60, "y": 0, "required": true, "item": true, "count": true, "chance": true },
+    { "key": "output2", "role": "OUTPUT", "x": 60, "y": 20, "required": false, "item": true, "count": true, "chance": true }
+  ],
+  "decorations": [
+    { "type": "ARROW", "x": 26, "y": 10 }
+  ],
+  "parameters": [
+    { "key": "__template", "type": "STRING", "default": "event.recipes.create.pressing([{outputs}], {slot:input})" }
+  ],
+  "codegen": "kjsgen:template",
+  "requiresMod": "create"
+}
