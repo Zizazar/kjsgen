@@ -1,0 +1,13 @@
+{
+  "itemGroup.kjsgen": "Example Mod Tab",
+  "block.kjsgen.example_block": "Example Block",
+  "item.kjsgen.example_item": "Example Item",
+
+  "kjsgen.configuration.title": "kubejs-generator Configs",
+  "kjsgen.configuration.section.kjsgen.common.toml": "kubejs-generator Configs",
+  "kjsgen.configuration.section.kjsgen.common.toml.title": "kubejs-generator Configs",
+  "kjsgen.configuration.items": "Item List",
+  "kjsgen.configuration.logDirtBlock": "Log Dirt Block",
+  "kjsgen.configuration.magicNumberIntroduction": "Magic Number Text",
+  "kjsgen.configuration.magicNumber": "Magic Number"
+}
