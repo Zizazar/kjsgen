@@ -1,0 +1,870 @@
+package com.zizazr.kjsgen.ui.vanilla;
+
+import com.zizazr.kjsgen.KjsGen;
+import com.zizazr.kjsgen.core.LayoutDecoration;
+import com.zizazr.kjsgen.core.ParameterDefinition;
+import com.zizazr.kjsgen.core.ProjectManager;
+import com.zizazr.kjsgen.core.RecipeInstance;
+import com.zizazr.kjsgen.core.RecipeProject;
+import com.zizazr.kjsgen.core.RecipeTypeDefinition;
+import com.zizazr.kjsgen.core.RecipeTypeRegistry;
+import com.zizazr.kjsgen.core.RecipeValidator;
+import com.zizazr.kjsgen.core.SlotContent;
+import com.zizazr.kjsgen.core.SlotDefinition;
+import com.zizazr.kjsgen.integration.kubejs.ScriptAssembler;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * A pure-vanilla ({@link Screen}-based) implementation of the kjsgen recipe
+ * editor, built without LDLib2. It shares the same data model as the LDLib2
+ * editor ({@link com.zizazr.kjsgen.ui.KjsGenUI}) but renders everything with
+ * {@link GuiGraphics} and stock Minecraft widgets, so we can compare the two
+ * looks side by side.
+ *
+ * <p>Layout: a header bar (title + project name + Save/Projects/Export), then
+ * three columns — recipe list, JEI-style canvas, and parameters + code preview.
+ */
+public class VanillaEditorScreen extends Screen {
+    private static final int ROW_H = 20;
+    private static final int PARAM_ROW_H = 18;
+
+    private RecipeProject project = ProjectManager.current();
+    private String selectedUid;
+
+    // ---- derived caches (rebuilt when the model changes) -----------------
+    private List<String> previewLines = List.of("");
+    private List<RecipeValidator.Issue> issues = new ArrayList<>();
+    private boolean derivedDirty = true;
+
+    // ---- scroll state ----------------------------------------------------
+    private int listScroll;
+    private int paramScroll;
+    private int previewScroll;
+
+    // ---- geometry (computed in init) -------------------------------------
+    private int panelX, panelY, panelW, panelH;
+    private int listX, listY, listW, listViewH;
+    private int canvasBoxX, canvasBoxY, canvasBoxW, canvasBoxH;
+    private int canvasOriginX, canvasOriginY;
+    private int paramX, paramY, paramW, paramViewH;
+    private int previewX, previewY, previewW, previewH;
+
+    // ---- widgets ---------------------------------------------------------
+    private EditBox projectNameField;
+    private final List<AbstractWidget> paramWidgets = new ArrayList<>();
+    private final List<Component> paramLabels = new ArrayList<>();
+
+    // ---- transient per-frame ---------------------------------------------
+    private List<Component> hoverTooltip;
+
+    public VanillaEditorScreen() {
+        super(Component.translatable("kjsgen.title"));
+    }
+
+    @Override
+    protected void init() {
+        if (selectedUid == null && !project.recipes().isEmpty()) {
+            selectedUid = project.recipes().get(0).uid();
+        }
+        computeGeometry();
+
+        // ----- header: project name + action buttons (laid out right to left)
+        int hy = panelY + 6;
+        int hh = 16;
+        int rightEdge = panelX + panelW - 8;
+
+        Button export = Button.builder(Component.translatable("kjsgen.ui.export"), b -> openExport())
+                .bounds(0, hy, btnWidth("kjsgen.ui.export"), hh).build();
+        Button projects = Button.builder(Component.translatable("kjsgen.ui.projects"), b -> openProjects())
+                .bounds(0, hy, btnWidth("kjsgen.ui.projects"), hh).build();
+        Button save = Button.builder(Component.translatable("kjsgen.ui.save"), b -> saveProject(true))
+                .bounds(0, hy, btnWidth("kjsgen.ui.save"), hh).build();
+
+        export.setX(rightEdge - export.getWidth());
+        projects.setX(export.getX() - 4 - projects.getWidth());
+        save.setX(projects.getX() - 4 - save.getWidth());
+
+        int nameW = 96;
+        projectNameField = new EditBox(this.font, save.getX() - 6 - nameW, hy + 1, nameW, 14,
+                Component.translatable("kjsgen.ui.project_name"));
+        projectNameField.setMaxLength(64);
+        projectNameField.setValue(project.name());
+        projectNameField.setResponder(name -> {
+            if (!name.isBlank()) {
+                project.setName(name.trim());
+            }
+        });
+
+        addRenderableWidget(projectNameField);
+        addRenderableWidget(save);
+        addRenderableWidget(projects);
+        addRenderableWidget(export);
+
+        // ----- left: add recipe button (pinned to the bottom of the list column)
+        Button addRecipe = Button.builder(Component.translatable("kjsgen.ui.add_recipe"), b -> openTypePicker())
+                .bounds(listX, listY + listViewH + 4, listW, 16).build();
+        addRenderableWidget(addRecipe);
+
+        // ----- right: parameter widgets
+        buildParamWidgets();
+        layoutParamWidgets();
+
+        derivedDirty = true;
+    }
+
+    private void computeGeometry() {
+        panelW = Math.min(this.width - 16, 560);
+        panelH = Math.min(this.height - 16, 320);
+        panelX = (this.width - panelW) / 2;
+        panelY = (this.height - panelH) / 2;
+
+        int pad = 8;
+        int innerX = panelX + pad;
+        int innerW = panelW - 2 * pad;
+        int headerBottom = panelY + 6 + 16 + 6;
+        int contentY = headerBottom;
+        int contentBottom = panelY + panelH - pad;
+        int contentH = contentBottom - contentY;
+
+        int gap = 6;
+        int leftW = 118;
+        int rightW = 156;
+
+        // left column (recipe list + add button at the bottom)
+        listX = innerX;
+        listY = contentY + 12;
+        listW = leftW;
+        listViewH = contentBottom - listY - 20; // leave room for the add button
+
+        // center column (type header + canvas + validation)
+        canvasBoxX = innerX + leftW + gap;
+        canvasBoxW = innerW - leftW - rightW - 2 * gap;
+        canvasBoxY = contentY + 12;
+        canvasBoxH = contentH - 12 - 30; // leave room for validation lines
+
+        // right column (parameters top, preview bottom)
+        paramX = innerX + innerW - rightW;
+        paramY = contentY + 12;
+        paramW = rightW;
+        int rightSplit = contentY + (int) (contentH * 0.55f);
+        paramViewH = rightSplit - paramY;
+        previewX = paramX;
+        previewY = rightSplit + 12;
+        previewW = rightW;
+        previewH = contentBottom - previewY;
+    }
+
+    private int btnWidth(String key) {
+        return this.font.width(Component.translatable(key)) + 12;
+    }
+
+    // ------------------------------------------------------------------ params
+
+    private void buildParamWidgets() {
+        paramWidgets.clear();
+        paramLabels.clear();
+        RecipeInstance recipe = selectedRecipe().orElse(null);
+        if (recipe == null) {
+            return;
+        }
+        RecipeTypeDefinition type = RecipeTypeRegistry.get(recipe.typeId()).orElse(null);
+        if (type == null) {
+            return;
+        }
+
+        int ctrlW = paramW - 60;
+        addTextParam("kjsgen.ui.recipe_id", recipe.recipeId(), "namespace:path", ctrlW, null, recipe::setRecipeId);
+        addTextParam("kjsgen.ui.group", recipe.group(), "", ctrlW, null, recipe::setGroup);
+        addTextParam("kjsgen.ui.comment", recipe.comment(), "", ctrlW, null, recipe::setComment);
+        addTextParam("kjsgen.ui.target_file", recipe.targetFile(), project.defaultTargetFile(), ctrlW, null,
+                recipe::setTargetFile);
+        addTextParam("kjsgen.ui.if_mod_loaded", recipe.conditionModLoaded(), "", ctrlW, null,
+                recipe::setConditionModLoaded);
+
+        for (ParameterDefinition param : type.parameters()) {
+            if (param.key().startsWith("__")) {
+                continue; // hidden codegen internals
+            }
+            String value = recipe.param(type, param.key());
+            Component label = paramLabel(param.key());
+            switch (param.type()) {
+                case BOOL -> {
+                    boolean cur = Boolean.parseBoolean(value.isEmpty() ? param.defaultValue() : value);
+                    CycleButton<Boolean> toggle = CycleButton.<Boolean>builder(
+                                    b -> Component.literal(b ? "true" : "false"))
+                            .withValues(Boolean.TRUE, Boolean.FALSE)
+                            .displayOnlyValue()
+                            .withInitialValue(cur)
+                            .create(0, 0, ctrlW, 14, Component.empty(),
+                                    (btn, v) -> {
+                                        recipe.setParam(param.key(), Boolean.toString(v));
+                                        markDirty();
+                                    });
+                    addParam(label, toggle);
+                }
+                case ENUM -> {
+                    List<String> options = param.options().isEmpty() ? List.of(value) : param.options();
+                    String cur = value.isEmpty() ? param.defaultValue() : value;
+                    if (!options.contains(cur) && !options.isEmpty()) {
+                        cur = options.get(0);
+                    }
+                    CycleButton<String> selector = CycleButton.<String>builder(Component::literal)
+                            .withValues(options)
+                            .displayOnlyValue()
+                            .withInitialValue(cur)
+                            .create(0, 0, ctrlW, 14, Component.empty(),
+                                    (btn, v) -> {
+                                        recipe.setParam(param.key(), v);
+                                        markDirty();
+                                    });
+                    addParam(label, selector);
+                }
+                case INT -> addTextParam(label, value, param.defaultValue(), ctrlW, "\\d*",
+                        v -> recipe.setParam(param.key(), v));
+                case FLOAT -> addTextParam(label, value, param.defaultValue(), ctrlW, "\\d*\\.?\\d*",
+                        v -> recipe.setParam(param.key(), v));
+                default -> addTextParam(label, value, param.defaultValue(), ctrlW, null,
+                        v -> recipe.setParam(param.key(), v));
+            }
+        }
+    }
+
+    private void addTextParam(String labelKey, String value, String hint, int width, String filter,
+                              java.util.function.Consumer<String> setter) {
+        addTextParam(Component.translatable(labelKey), value, hint, width, filter, setter);
+    }
+
+    private void addTextParam(Component label, String value, String hint, int width, String filter,
+                              java.util.function.Consumer<String> setter) {
+        EditBox box = new EditBox(this.font, 0, 0, width, 14, label);
+        box.setMaxLength(256);
+        box.setValue(value);
+        if (hint != null && !hint.isEmpty()) {
+            box.setHint(Component.literal(hint));
+        }
+        if (filter != null) {
+            box.setFilter(s -> s.matches(filter));
+        }
+        box.setResponder(v -> {
+            setter.accept(v);
+            markDirty();
+        });
+        addParam(label, box);
+    }
+
+    private void addParam(Component label, AbstractWidget widget) {
+        paramLabels.add(label);
+        paramWidgets.add(widget);
+        addRenderableWidget(widget);
+    }
+
+    /** Positions/visibility of parameter widgets according to the scroll offset. */
+    private void layoutParamWidgets() {
+        int maxScroll = Math.max(0, paramWidgets.size() * PARAM_ROW_H - paramViewH);
+        paramScroll = Math.max(0, Math.min(paramScroll, maxScroll));
+        for (int i = 0; i < paramWidgets.size(); i++) {
+            AbstractWidget w = paramWidgets.get(i);
+            int rowTop = paramY + i * PARAM_ROW_H - paramScroll;
+            boolean visible = rowTop >= paramY && rowTop + PARAM_ROW_H <= paramY + paramViewH;
+            w.visible = visible;
+            w.active = visible;
+            w.setX(paramX + 58);
+            w.setY(rowTop + 1);
+        }
+    }
+
+    // ------------------------------------------------------------------ actions
+
+    Optional<RecipeInstance> selectedRecipe() {
+        return selectedUid == null ? Optional.empty() : project.recipeByUid(selectedUid);
+    }
+
+    RecipeProject project() {
+        return project;
+    }
+
+    void markDirty() {
+        derivedDirty = true;
+    }
+
+    void saveProject(boolean notify) {
+        try {
+            ProjectManager.save(project);
+            if (notify && this.minecraft != null && this.minecraft.player != null) {
+                this.minecraft.player.displayClientMessage(Component.translatable("kjsgen.ui.saved"), true);
+            }
+        } catch (IOException e) {
+            KjsGen.LOGGER.error("Failed to save project", e);
+        }
+    }
+
+    /** Switch to another project (called back from the projects screen). */
+    void setProject(RecipeProject newProject) {
+        this.project = newProject;
+        ProjectManager.setCurrent(newProject);
+        this.selectedUid = newProject.recipes().isEmpty() ? null : newProject.recipes().get(0).uid();
+        this.listScroll = 0;
+        this.paramScroll = 0;
+        rebuildWidgets();
+    }
+
+    /** Add a freshly-picked recipe type as a new recipe and select it. */
+    void addRecipeOfType(RecipeTypeDefinition type) {
+        RecipeInstance recipe = new RecipeInstance(type.id());
+        project.add(recipe);
+        selectedUid = recipe.uid();
+        rebuildWidgets();
+    }
+
+    private void openTypePicker() {
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(new VanillaTypePickerScreen(this));
+        }
+    }
+
+    private void openProjects() {
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(new VanillaProjectsScreen(this));
+        }
+    }
+
+    private void openExport() {
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(new VanillaExportScreen(this));
+        }
+    }
+
+    // ------------------------------------------------------------------ render
+
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(g, mouseX, mouseY, partialTick);
+        this.hoverTooltip = null;
+        if (derivedDirty) {
+            recomputeDerived();
+            derivedDirty = false;
+        }
+
+        VanillaTheme.panel(g, panelX, panelY, panelW, panelH);
+        g.drawString(this.font, this.title, panelX + 8, panelY + 10, VanillaTheme.TEXT, true);
+
+        drawRecipeList(g, mouseX, mouseY);
+        drawCanvas(g, mouseX, mouseY);
+        drawParams(g);
+        drawPreview(g);
+
+        // widgets on top of the custom panels
+        for (Renderable r : this.renderables) {
+            r.render(g, mouseX, mouseY, partialTick);
+        }
+
+        if (hoverTooltip != null) {
+            g.renderComponentTooltip(this.font, hoverTooltip, mouseX, mouseY);
+        }
+    }
+
+    private void recomputeDerived() {
+        RecipeInstance recipe = selectedRecipe().orElse(null);
+        RecipeTypeDefinition type = recipe == null ? null
+                : RecipeTypeRegistry.get(recipe.typeId()).orElse(null);
+        issues = new ArrayList<>();
+        if (recipe != null && type != null) {
+            issues.addAll(RecipeValidator.validate(recipe, type));
+            issues.addAll(RecipeValidator.validateProject(project));
+        }
+        String text = recipe == null ? "" : ScriptAssembler.previewSingle(project, recipe);
+        previewLines = List.of(text.split("\n", -1));
+    }
+
+    // ---- recipe list -----------------------------------------------------
+
+    private void drawRecipeList(GuiGraphics g, int mouseX, int mouseY) {
+        g.drawString(this.font,
+                Component.translatable("kjsgen.ui.recipes").getString() + " (" + project.recipes().size() + ")",
+                listX, listY - 10, VanillaTheme.TEXT_DIM, true);
+        VanillaTheme.section(g, listX, listY, listW, listViewH);
+
+        g.enableScissor(listX + 1, listY + 1, listX + listW - 1, listY + listViewH - 1);
+        List<RecipeInstance> recipes = project.recipes();
+        for (int i = 0; i < recipes.size(); i++) {
+            RecipeInstance recipe = recipes.get(i);
+            int rowY = listY + i * ROW_H - listScroll;
+            if (rowY + ROW_H < listY || rowY > listY + listViewH) {
+                continue;
+            }
+            boolean selected = recipe.uid().equals(selectedUid);
+            boolean hovered = mouseX >= listX && mouseX < listX + listW
+                    && mouseY >= Math.max(rowY, listY) && mouseY < Math.min(rowY + ROW_H, listY + listViewH);
+            if (selected) {
+                g.fill(listX + 1, rowY, listX + listW - 1, rowY + ROW_H, VanillaTheme.SELECT_BG);
+                g.fill(listX + 1, rowY, listX + 3, rowY + ROW_H, VanillaTheme.ACCENT);
+            } else if (hovered) {
+                g.fill(listX + 1, rowY, listX + listW - 1, rowY + ROW_H, VanillaTheme.ROW_HOVER);
+            }
+
+            ItemStack icon = iconForRecipe(recipe);
+            if (!icon.isEmpty()) {
+                g.renderItem(icon, listX + 3, rowY + 2);
+            }
+            String label = this.font.plainSubstrByWidth(recipe.describe(), listW - 24 - 30);
+            g.drawString(this.font, label, listX + 22, rowY + 6, VanillaTheme.TEXT, true);
+
+            // duplicate + delete glyph buttons on the right edge of the row
+            int delX = listX + listW - 16;
+            int dupX = delX - 15;
+            drawDuplicateIcon(g, dupX, rowY + 5, hovered);
+            drawDeleteIcon(g, delX + 3, rowY + 6, hovered);
+        }
+        g.disableScissor();
+
+        drawScrollbar(g, listX + listW - 3, listY, listViewH, recipes.size() * ROW_H, listScroll);
+    }
+
+    private ItemStack iconForRecipe(RecipeInstance recipe) {
+        for (var entry : recipe.slots().entrySet()) {
+            if (entry.getKey().startsWith("output") && !entry.getValue().isEmpty()) {
+                return VanillaTheme.iconStackFor(entry.getValue());
+            }
+        }
+        return recipe.slots().values().stream().filter(c -> !c.isEmpty()).findFirst()
+                .map(VanillaTheme::iconStackFor).orElse(ItemStack.EMPTY);
+    }
+
+    private void drawDuplicateIcon(GuiGraphics g, int x, int y, boolean hovered) {
+        int c = hovered ? VanillaTheme.TEXT : VanillaTheme.TEXT_DIM;
+        g.renderOutline(x + 2, y, 7, 8, c);
+        g.fill(x, y + 2, x + 6, y + 3, VanillaTheme.SECTION_BG);
+        g.renderOutline(x, y + 2, 7, 8, c);
+    }
+
+    /** A small font-independent "×" drawn from two diagonals. */
+    private void drawDeleteIcon(GuiGraphics g, int x, int y, boolean hovered) {
+        int c = hovered ? VanillaTheme.ERROR : VanillaTheme.TEXT_DIM;
+        for (int i = 0; i < 7; i++) {
+            g.fill(x + i, y + i, x + i + 1, y + i + 1, c);
+            g.fill(x + 6 - i, y + i, x + 7 - i, y + i + 1, c);
+        }
+    }
+
+    // ---- canvas ----------------------------------------------------------
+
+    private void drawCanvas(GuiGraphics g, int mouseX, int mouseY) {
+        RecipeInstance recipe = selectedRecipe().orElse(null);
+        if (recipe == null) {
+            g.drawString(this.font, Component.translatable("kjsgen.ui.no_recipe"),
+                    canvasBoxX, canvasBoxY - 10, VanillaTheme.TEXT_DIM, true);
+            VanillaTheme.section(g, canvasBoxX, canvasBoxY, canvasBoxW, canvasBoxH);
+            drawCenteredHint(g, Component.translatable("kjsgen.ui.no_recipe_hint"));
+            return;
+        }
+        RecipeTypeDefinition type = RecipeTypeRegistry.get(recipe.typeId()).orElse(null);
+        String typeName = type != null ? typeName(type) : recipe.typeId();
+        g.drawString(this.font, typeName, canvasBoxX, canvasBoxY - 10, VanillaTheme.TEXT, true);
+        VanillaTheme.section(g, canvasBoxX, canvasBoxY, canvasBoxW, canvasBoxH);
+        if (type == null) {
+            drawCenteredHint(g, Component.translatable("kjsgen.ui.unknown_type"));
+            return;
+        }
+
+        canvasOriginX = canvasBoxX + Math.max(4, (canvasBoxW - type.canvasWidth()) / 2);
+        canvasOriginY = canvasBoxY + Math.max(4, (canvasBoxH - type.canvasHeight()) / 2);
+
+        g.enableScissor(canvasBoxX + 1, canvasBoxY + 1, canvasBoxX + canvasBoxW - 1, canvasBoxY + canvasBoxH - 1);
+        for (LayoutDecoration decoration : type.decorations()) {
+            drawDecoration(g, decoration, canvasOriginX + decoration.x(), canvasOriginY + decoration.y());
+        }
+        for (SlotDefinition slotDef : type.slots()) {
+            if (slotDef.list()) {
+                drawListSlot(g, slotDef, recipe, mouseX, mouseY);
+                continue;
+            }
+            int sx = canvasOriginX + slotDef.x();
+            int sy = canvasOriginY + slotDef.y();
+            boolean hovered = slotHovered(mouseX, mouseY, sx, sy);
+            VanillaTheme.slot(g, sx, sy, hovered);
+
+            SlotContent content = recipe.slot(slotDef.key());
+            drawSlotContent(g, sx, sy, content);
+            boolean hasIssue = issues.stream().anyMatch(is -> is.slotKey().equals(slotDef.key()));
+            if (hasIssue) {
+                g.renderOutline(sx, sy, 18, 18, VanillaTheme.ERROR);
+            }
+            if (hovered) {
+                hoverTooltip = slotTooltip(slotDef, content);
+            }
+        }
+        g.disableScissor();
+
+        drawValidation(g);
+    }
+
+    // ---- list slots (dynamic ingredient list + '+' button) --------------
+
+    /** Columns before a list slot wraps to the next row. */
+    private static final int LIST_COLS = 3;
+
+    private int listEntryX(SlotDefinition def, int index) {
+        return canvasOriginX + def.x() + (index % LIST_COLS) * 18;
+    }
+
+    private int listEntryY(SlotDefinition def, int index) {
+        return canvasOriginY + def.y() + (index / LIST_COLS) * 18;
+    }
+
+    /** Number of item slots to draw: the entries, or a single empty placeholder. */
+    private int listShownCount(RecipeInstance recipe, SlotDefinition def) {
+        return Math.max(1, recipe.listSlots(def.key()).size());
+    }
+
+    private void drawListSlot(GuiGraphics g, SlotDefinition def, RecipeInstance recipe, int mouseX, int mouseY) {
+        List<SlotContent> entries = recipe.listSlots(def.key());
+        boolean hasIssue = issues.stream().anyMatch(is -> is.slotKey().equals(def.key()));
+        int shown = Math.max(1, entries.size());
+        for (int i = 0; i < shown; i++) {
+            int sx = listEntryX(def, i);
+            int sy = listEntryY(def, i);
+            boolean hovered = slotHovered(mouseX, mouseY, sx, sy);
+            VanillaTheme.slot(g, sx, sy, hovered);
+            SlotContent content = i < entries.size() ? entries.get(i) : SlotContent.EMPTY;
+            drawSlotContent(g, sx, sy, content);
+            if (hasIssue) {
+                g.renderOutline(sx, sy, 18, 18, VanillaTheme.ERROR);
+            }
+            if (hovered) {
+                hoverTooltip = slotTooltip(def, content);
+            }
+        }
+        // the '+' button sits right after the last entry
+        int px = listEntryX(def, shown);
+        int py = listEntryY(def, shown);
+        boolean plusHover = slotHovered(mouseX, mouseY, px, py);
+        drawPlusButton(g, px, py, plusHover);
+        if (plusHover) {
+            hoverTooltip = List.of(Component.translatable("kjsgen.ui.list_add"));
+        }
+    }
+
+    private void drawPlusButton(GuiGraphics g, int x, int y, boolean hovered) {
+        g.fill(x + 1, y + 1, x + 17, y + 17, VanillaTheme.SECTION_BG);
+        g.renderOutline(x, y, 18, 18, hovered ? VanillaTheme.ACCENT : VanillaTheme.TEXT_DIM);
+        int c = hovered ? VanillaTheme.TEXT : VanillaTheme.TEXT_DIM;
+        g.fill(x + 8, y + 4, x + 10, y + 14, c);
+        g.fill(x + 4, y + 8, x + 14, y + 10, c);
+    }
+
+    /** Draw the item/tag/fluid/chemical icon of one slot's content (no slot background). */
+    private void drawSlotContent(GuiGraphics g, int sx, int sy, SlotContent content) {
+        if (content.isEmpty()) {
+            return;
+        }
+        String count = countLabel(content);
+        if (content.kind().isChemical()) {
+            VanillaTheme.drawChemical(g, sx + 1, sy + 1, content);
+            if (count != null) {
+                // same bottom-right spot renderItemDecorations uses for stack counts
+                g.drawString(this.font, count, sx + 18 - this.font.width(count), sy + 10,
+                        0xFFFFFF, true);
+            }
+        } else {
+            ItemStack icon = VanillaTheme.iconStackFor(content);
+            g.renderItem(icon, sx + 1, sy + 1);
+            if (count != null) {
+                g.renderItemDecorations(this.font, icon, sx + 1, sy + 1, count);
+            }
+        }
+        if (content.kind().isTag()) {
+            g.drawString(this.font, "#", sx + 1, sy + 1, VanillaTheme.WARN, true);
+        }
+    }
+
+    private boolean slotHovered(int mouseX, int mouseY, int sx, int sy) {
+        return mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18
+                && mouseX >= canvasBoxX && mouseX < canvasBoxX + canvasBoxW
+                && mouseY >= canvasBoxY && mouseY < canvasBoxY + canvasBoxH;
+    }
+
+    private String countLabel(SlotContent content) {
+        return switch (content.kind()) {
+            case ITEM -> content.count() > 1 ? Integer.toString(content.count()) : null;
+            case FLUID, FLUID_TAG, CHEMICAL, CHEMICAL_TAG -> content.amount() >= 1000
+                    ? (content.amount() / 1000) + "B" : content.amount() + "m";
+            default -> null;
+        };
+    }
+
+    private List<Component> slotTooltip(SlotDefinition slotDef, SlotContent content) {
+        List<Component> tip = new ArrayList<>();
+        Component role = Component.translatable("kjsgen.slot_role." + slotDef.role().name().toLowerCase());
+        tip.add(Component.literal(slotDef.key() + " · ").append(role));
+        tip.add(Component.literal(content.describe()).withStyle(s -> s.withColor(VanillaTheme.TEXT_DIM)));
+        tip.add(Component.translatable("kjsgen.ui.slot_hint").withStyle(s -> s.withColor(VanillaTheme.TEXT_DIM)));
+        return tip;
+    }
+
+    private void drawDecoration(GuiGraphics g, LayoutDecoration decoration, int x, int y) {
+        switch (decoration.type()) {
+            case ARROW -> {
+                int cy = y + 8;
+                g.fill(x, cy - 1, x + 18, cy + 1, VanillaTheme.TEXT_DIM);
+                for (int i = 0; i < 5; i++) {
+                    g.fill(x + 18 + i, cy - 5 + i, x + 19 + i, cy + 5 - i, VanillaTheme.TEXT_DIM);
+                }
+            }
+            case FLAME -> {
+                for (int i = 0; i < 7; i++) {
+                    g.fill(x + 7 - i / 2 - 1, y + 13 - i, x + 7 + i / 2 + 1, y + 14 - i, 0xFFFF8A3C);
+                }
+            }
+            case PLUS -> g.drawString(this.font, "+", x, y, VanillaTheme.TEXT_DIM, true);
+            case TEXT -> g.drawString(this.font, decoration.text(), x, y, VanillaTheme.TEXT_DIM, true);
+        }
+    }
+
+    private void drawValidation(GuiGraphics g) {
+        int y = canvasBoxY + canvasBoxH + 3;
+        int shown = 0;
+        for (RecipeValidator.Issue issue : issues) {
+            if (shown >= 3) {
+                break;
+            }
+            int color = issue.severity() == RecipeValidator.Severity.ERROR ? VanillaTheme.ERROR : VanillaTheme.WARN;
+            Component msg = Component.translatable(issue.messageKey(), issue.args());
+            g.fill(canvasBoxX, y + 1, canvasBoxX + 3, y + 7, color);
+            String line = this.font.plainSubstrByWidth(msg.getString(), canvasBoxW - 6);
+            g.drawString(this.font, line, canvasBoxX + 6, y, color, true);
+            y += 10;
+            shown++;
+        }
+        if (issues.isEmpty() && selectedRecipe().isPresent()) {
+            g.fill(canvasBoxX, y + 1, canvasBoxX + 3, y + 7, VanillaTheme.OK_GREEN);
+            g.drawString(this.font, "valid", canvasBoxX + 6, y, VanillaTheme.OK_GREEN, true);
+        }
+    }
+
+    private void drawCenteredHint(GuiGraphics g, Component text) {
+        g.drawCenteredString(this.font, text, canvasBoxX + canvasBoxW / 2,
+                canvasBoxY + canvasBoxH / 2 - 4, VanillaTheme.TEXT_DIM);
+    }
+
+    // ---- params ----------------------------------------------------------
+
+    private void drawParams(GuiGraphics g) {
+        g.drawString(this.font, "Parameters", paramX, paramY - 10, VanillaTheme.TEXT_DIM, true);
+        VanillaTheme.section(g, paramX, paramY, paramW, paramViewH);
+
+        g.enableScissor(paramX + 1, paramY + 1, paramX + paramW - 1, paramY + paramViewH - 1);
+        for (int i = 0; i < paramLabels.size(); i++) {
+            AbstractWidget w = paramWidgets.get(i);
+            if (!w.visible) {
+                continue;
+            }
+            String label = this.font.plainSubstrByWidth(paramLabels.get(i).getString(), 54);
+            g.drawString(this.font, label, paramX + 3, w.getY() + 3, VanillaTheme.TEXT_DIM, true);
+        }
+        g.disableScissor();
+        drawScrollbar(g, paramX + paramW - 3, paramY, paramViewH, paramWidgets.size() * PARAM_ROW_H, paramScroll);
+    }
+
+    // ---- preview ---------------------------------------------------------
+
+    private void drawPreview(GuiGraphics g) {
+        g.drawString(this.font, Component.translatable("kjsgen.ui.preview"),
+                previewX, previewY - 10, VanillaTheme.TEXT_DIM, true);
+        VanillaTheme.section(g, previewX, previewY, previewW, previewH);
+
+        float scale = 0.75f;
+        int lineH = 8;
+        g.enableScissor(previewX + 1, previewY + 1, previewX + previewW - 1, previewY + previewH - 1);
+        g.pose().pushPose();
+        g.pose().scale(scale, scale, 1f);
+        int tx = (int) ((previewX + 3) / scale);
+        int startY = previewY + 3 - previewScroll;
+        for (int i = 0; i < previewLines.size(); i++) {
+            int ly = startY + i * lineH;
+            if (ly + lineH < previewY || ly > previewY + previewH) {
+                continue;
+            }
+            g.drawString(this.font, previewLines.get(i), tx, (int) (ly / scale),
+                    VanillaTheme.OK_GREEN, true);
+        }
+        g.pose().popPose();
+        g.disableScissor();
+        drawScrollbar(g, previewX + previewW - 3, previewY, previewH, previewLines.size() * lineH, previewScroll);
+    }
+
+    // ---- scrollbar -------------------------------------------------------
+
+    private void drawScrollbar(GuiGraphics g, int x, int y, int viewH, int contentH, int scroll) {
+        if (contentH <= viewH) {
+            return;
+        }
+        int barH = Math.max(12, viewH * viewH / contentH);
+        int maxScroll = contentH - viewH;
+        int barY = y + (int) ((viewH - barH) * (scroll / (float) maxScroll));
+        g.fill(x, y, x + 2, y + viewH, 0x40000000);
+        g.fill(x, barY, x + 2, barY + barH, VanillaTheme.ACCENT);
+    }
+
+    // ------------------------------------------------------------------ input
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (super.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        // recipe list rows
+        if (inside(mouseX, mouseY, listX, listY, listW, listViewH)) {
+            List<RecipeInstance> recipes = project.recipes();
+            for (int i = 0; i < recipes.size(); i++) {
+                int rowY = listY + i * ROW_H - listScroll;
+                if (mouseY < rowY || mouseY >= rowY + ROW_H) {
+                    continue;
+                }
+                RecipeInstance recipe = recipes.get(i);
+                int delX = listX + listW - 16;
+                int dupX = delX - 15;
+                if (mouseX >= delX - 2) {
+                    project.remove(recipe);
+                    if (recipe.uid().equals(selectedUid)) {
+                        selectedUid = recipes.isEmpty() ? null : recipes.get(0).uid();
+                    }
+                    rebuildWidgets();
+                } else if (mouseX >= dupX - 2) {
+                    RecipeInstance copy = recipe.copy();
+                    project.add(copy);
+                    selectedUid = copy.uid();
+                    rebuildWidgets();
+                } else {
+                    selectedUid = recipe.uid();
+                    paramScroll = 0;
+                    rebuildWidgets();
+                }
+                return true;
+            }
+            return true;
+        }
+        // canvas slots
+        RecipeInstance recipe = selectedRecipe().orElse(null);
+        RecipeTypeDefinition type = recipe == null ? null
+                : RecipeTypeRegistry.get(recipe.typeId()).orElse(null);
+        if (recipe != null && type != null && inside(mouseX, mouseY, canvasBoxX, canvasBoxY, canvasBoxW, canvasBoxH)) {
+            for (SlotDefinition slotDef : type.slots()) {
+                if (slotDef.list()) {
+                    if (clickListSlot(mouseX, mouseY, button, recipe, slotDef)) {
+                        return true;
+                    }
+                    continue;
+                }
+                int sx = canvasOriginX + slotDef.x();
+                int sy = canvasOriginY + slotDef.y();
+                if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
+                    if (button == 1) {
+                        recipe.setSlot(slotDef.key(), SlotContent.EMPTY);
+                        markDirty();
+                    } else if (this.minecraft != null) {
+                        this.minecraft.setScreen(new VanillaSlotEditScreen(this, recipe, slotDef));
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+            return true;
+        }
+        int delta = (int) (-scrollY * ROW_H);
+        if (inside(mouseX, mouseY, listX, listY, listW, listViewH)) {
+            int max = Math.max(0, project.recipes().size() * ROW_H - listViewH);
+            listScroll = Math.max(0, Math.min(listScroll + delta, max));
+            return true;
+        }
+        if (inside(mouseX, mouseY, paramX, paramY, paramW, paramViewH)) {
+            paramScroll += (int) (-scrollY * PARAM_ROW_H);
+            layoutParamWidgets();
+            return true;
+        }
+        if (inside(mouseX, mouseY, previewX, previewY, previewW, previewH)) {
+            int max = Math.max(0, previewLines.size() * 8 - previewH);
+            previewScroll = Math.max(0, Math.min(previewScroll + (int) (-scrollY * 12), max));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean inside(double mx, double my, int x, int y, int w, int h) {
+        return mx >= x && mx < x + w && my >= y && my < y + h;
+    }
+
+    /** Handle a click on a list slot's entries or its '+' button. */
+    private boolean clickListSlot(double mouseX, double mouseY, int button,
+                                  RecipeInstance recipe, SlotDefinition def) {
+        int shown = listShownCount(recipe, def);
+        for (int i = 0; i < shown; i++) {
+            int sx = listEntryX(def, i);
+            int sy = listEntryY(def, i);
+            if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
+                if (button == 1) {
+                    // clearing an entry removes it (unless it's the only, still-empty placeholder)
+                    recipe.setListSlot(def.key(), i, SlotContent.EMPTY);
+                    markDirty();
+                } else {
+                    openListEntryEditor(recipe, def, i);
+                }
+                return true;
+            }
+        }
+        int px = listEntryX(def, shown);
+        int py = listEntryY(def, shown);
+        if (mouseX >= px && mouseX < px + 18 && mouseY >= py && mouseY < py + 18) {
+            openListEntryEditor(recipe, def, shown); // append a fresh entry
+            return true;
+        }
+        return false;
+    }
+
+    private void openListEntryEditor(RecipeInstance recipe, SlotDefinition def, int index) {
+        if (this.minecraft == null) {
+            return;
+        }
+        List<SlotContent> entries = recipe.listSlots(def.key());
+        SlotContent initial = index < entries.size() ? entries.get(index) : SlotContent.EMPTY;
+        String title = def.key() + "[" + index + "]";
+        this.minecraft.setScreen(new VanillaSlotEditScreen(this, def, title, initial,
+                content -> recipe.setListSlot(def.key(), index, content)));
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    static String typeName(RecipeTypeDefinition type) {
+        String path = type.id().contains(":") ? type.id().substring(type.id().indexOf(':') + 1) : type.id();
+        String fallback = Character.toUpperCase(path.charAt(0)) + path.substring(1).replace('_', ' ');
+        return Component.translatableWithFallback(type.translationKey(), fallback).getString();
+    }
+
+    static Component paramLabel(String key) {
+        String fallback = Character.toUpperCase(key.charAt(0)) + key.substring(1);
+        return Component.translatableWithFallback("kjsgen.param." + key, fallback);
+    }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "kjsgen:mekanism_oxidizing",
+  "mod": "mekanism",
+  "icon": "mekanism:chemical_oxidizer",
+  "width": 82,
+  "height": 34,
+  "slots": [
+    { "key": "input", "role": "INPUT", "x": 0, "y": 8, "required": true, "item": true, "tag": true },
+    { "key": "output", "role": "OUTPUT", "x": 60, "y": 8, "required": true, "item": false, "chemical": true }
+  ],
+  "decorations": [
+    { "type": "ARROW", "x": 26, "y": 9 }
+  ],
+  "parameters": [
+    { "key": "__template", "type": "STRING", "default": "event.recipes.mekanism.oxidizing({slot:output}, {slot:input})" }
+  ],
+  "codegen": "kjsgen:template",
+  "requiresMod": "mekanism"
+}

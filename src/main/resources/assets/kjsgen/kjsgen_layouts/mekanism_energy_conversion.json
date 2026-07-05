@@ -1,0 +1,20 @@
+{
+  "id": "kjsgen:mekanism_energy_conversion",
+  "mod": "mekanism",
+  "icon": "mekanism:basic_energy_cube",
+  "width": 82,
+  "height": 34,
+  "slots": [
+    { "key": "input", "role": "INPUT", "x": 0, "y": 8, "required": true, "item": true, "tag": true }
+  ],
+  "decorations": [
+    { "type": "ARROW", "x": 26, "y": 9 },
+    { "type": "TEXT", "x": 54, "y": 12, "text": "FE" }
+  ],
+  "parameters": [
+    { "key": "energy", "type": "INT", "default": "10000" },
+    { "key": "__template", "type": "STRING", "default": "event.recipes.mekanism.energy_conversion({slot:input}, {param:energy})" }
+  ],
+  "codegen": "kjsgen:template",
+  "requiresMod": "mekanism"
+}

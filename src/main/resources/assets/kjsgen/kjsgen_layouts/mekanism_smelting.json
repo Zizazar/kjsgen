@@ -1,0 +1,19 @@
+{
+  "id": "kjsgen:mekanism_smelting",
+  "mod": "mekanism",
+  "icon": "mekanism:energized_smelter",
+  "width": 82,
+  "height": 34,
+  "slots": [
+    { "key": "input", "role": "INPUT", "x": 0, "y": 8, "required": true, "item": true, "tag": true },
+    { "key": "output", "role": "OUTPUT", "x": 60, "y": 8, "required": true, "item": true, "count": true }
+  ],
+  "decorations": [
+    { "type": "ARROW", "x": 26, "y": 9 }
+  ],
+  "parameters": [
+    { "key": "__template", "type": "STRING", "default": "event.recipes.mekanism.smelting({slot:output}, {slot:input})" }
+  ],
+  "codegen": "kjsgen:template",
+  "requiresMod": "mekanism"
+}

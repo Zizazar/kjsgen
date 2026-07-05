@@ -1,0 +1,21 @@
+{
+  "id": "kjsgen:mekanism_sawing",
+  "mod": "mekanism",
+  "icon": "mekanism:precision_sawmill",
+  "width": 82,
+  "height": 36,
+  "slots": [
+    { "key": "input", "role": "INPUT", "x": 0, "y": 9, "required": true, "item": true, "tag": true },
+    { "key": "output", "role": "OUTPUT", "x": 60, "y": 0, "required": true, "item": true, "count": true },
+    { "key": "extraOutput", "role": "OUTPUT", "x": 60, "y": 18, "required": false, "item": true, "count": true }
+  ],
+  "decorations": [
+    { "type": "ARROW", "x": 26, "y": 9 }
+  ],
+  "parameters": [
+    { "key": "secondaryChance", "type": "FLOAT", "default": "1.0" },
+    { "key": "__template", "type": "STRING", "default": "event.recipes.mekanism.sawing({slot:output}{opt_slot_chance:extraOutput:secondaryChance}, {slot:input})" }
+  ],
+  "codegen": "kjsgen:template",
+  "requiresMod": "mekanism"
+}

@@ -1,0 +1,127 @@
+package com.zizazr.kjsgen.ui.vanilla;
+
+import com.zizazr.kjsgen.KjsGen;
+import com.zizazr.kjsgen.core.RecipeInstance;
+import com.zizazr.kjsgen.core.RecipeProject;
+import com.zizazr.kjsgen.core.RecipeTypeRegistry;
+import com.zizazr.kjsgen.core.RecipeValidator;
+import com.zizazr.kjsgen.integration.kubejs.KubeJsExporter;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Vanilla dialog showing export options and a per-file summary, then writing the
+ * KubeJS scripts through {@link KubeJsExporter}.
+ */
+public final class VanillaExportScreen extends VanillaDialogScreen {
+    private final RecipeProject project;
+
+    public VanillaExportScreen(VanillaEditorScreen parent) {
+        super(parent, Component.translatable("kjsgen.ui.export_title"));
+        this.project = parent.project();
+    }
+
+    @Override
+    protected void init() {
+        centerDialog(260, 210);
+        int x = dialogX + 10;
+        int w = dialogW - 20;
+
+        int fieldY = dialogY + dialogH - 74;
+        EditBox fileField = new EditBox(this.font, x + 70, fieldY, w - 70, 16,
+                Component.translatable("kjsgen.ui.default_file"));
+        fileField.setValue(project.defaultTargetFile());
+        fileField.setResponder(project::setDefaultTargetFile);
+        addRenderableWidget(fileField);
+
+        CycleButton<Boolean> comments = CycleButton.onOffBuilder(project.exportComments())
+                .create(x, fieldY + 20, w, 16, Component.translatable("kjsgen.ui.export_comments"),
+                        (btn, v) -> project.setExportComments(v));
+        addRenderableWidget(comments);
+
+        int by = dialogY + dialogH - 24;
+        int bw = (w - 8) / 3;
+        addRenderableWidget(Button.builder(Component.translatable("kjsgen.ui.preview_code"), b -> {
+            if (this.minecraft != null) {
+                this.minecraft.setScreen(new VanillaCodePreviewScreen(this, project));
+            }
+        }).bounds(x, by, bw, 18).build());
+        addRenderableWidget(Button.builder(Component.translatable("kjsgen.ui.export"), b -> doExport())
+                .bounds(x + bw + 4, by, bw, 18).build());
+        addRenderableWidget(Button.builder(Component.translatable("kjsgen.ui.cancel"), b -> onClose())
+                .bounds(x + 2 * (bw + 4), by, w - 2 * (bw + 4), 18).build());
+    }
+
+    private void doExport() {
+        ((VanillaEditorScreen) parent).saveProject(false);
+        try {
+            KubeJsExporter.ExportResult result = KubeJsExporter.exportProject(project);
+            StringBuilder info = new StringBuilder(Component.translatable("kjsgen.ui.export_done").getString());
+            for (KubeJsExporter.FileResult file : result.files()) {
+                info.append(" ").append(file.fileName()).append(".js(").append(file.recipeCount()).append(")");
+            }
+            message(info.toString());
+        } catch (IOException ex) {
+            KjsGen.LOGGER.error("kjsgen export failed", ex);
+            message(Component.translatable("kjsgen.error.export_failed").getString() + ": " + ex.getMessage());
+        }
+        onClose();
+    }
+
+    private void message(String text) {
+        if (this.minecraft != null && this.minecraft.player != null) {
+            this.minecraft.player.displayClientMessage(Component.literal(text), false);
+        }
+    }
+
+    @Override
+    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        int x = dialogX + 10;
+        int w = dialogW - 20;
+        int y = dialogY + 26;
+
+        Map<String, List<RecipeInstance>> byFile = project.recipesByTargetFile();
+        if (byFile.isEmpty()) {
+            g.drawString(this.font, Component.translatable("kjsgen.ui.export_empty"), x, y, VanillaTheme.ERROR, true);
+            y += 12;
+        } else {
+            for (Map.Entry<String, List<RecipeInstance>> e : byFile.entrySet()) {
+                String line = "server_scripts/" + KubeJsExporter.sanitizeFileName(e.getKey())
+                        + ".js  —  " + e.getValue().size();
+                g.drawString(this.font, this.font.plainSubstrByWidth(line, w), x, y, VanillaTheme.TEXT, true);
+                y += 11;
+                if (y > dialogY + dialogH - 90) {
+                    break;
+                }
+            }
+        }
+
+        // warnings
+        int wy = dialogY + dialogH - 92;
+        if (!KjsGen.isKubeJsLoaded()) {
+            g.drawString(this.font, this.font.plainSubstrByWidth(
+                            Component.translatable("kjsgen.export.warn_no_kubejs").getString(), w),
+                    x, wy, VanillaTheme.WARN, true);
+        }
+        long invalid = project.recipes().stream()
+                .filter(recipe -> RecipeTypeRegistry.get(recipe.typeId())
+                        .map(type -> RecipeValidator.hasErrors(RecipeValidator.validate(recipe, type)))
+                        .orElse(true))
+                .count();
+        if (invalid > 0) {
+            g.drawString(this.font, Component.translatable("kjsgen.ui.export_invalid", invalid),
+                    x, wy + 10, VanillaTheme.ERROR, true);
+        }
+
+        // labels for the option widgets
+        g.drawString(this.font, Component.translatable("kjsgen.ui.default_file"),
+                x, dialogY + dialogH - 70, VanillaTheme.TEXT_DIM, true);
+    }
+}
