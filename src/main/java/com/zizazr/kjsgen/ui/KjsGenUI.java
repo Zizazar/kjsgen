@@ -57,6 +57,10 @@ public class KjsGenUI {
     private TextArea previewArea;
     private TextField projectNameField;
 
+    // cached live JEI canvas for the currently selected recipe (see tryAddJeiCanvas)
+    private UIElement jeiCanvas;
+    private String jeiCanvasUid;
+
     public UI buildUI() {
         if (!project.recipes().isEmpty()) {
             selectedUid = project.recipes().get(0).uid();
@@ -142,6 +146,8 @@ public class KjsGenUI {
     void setProject(RecipeProject newProject) {
         this.project = newProject;
         ProjectManager.setCurrent(newProject);
+        this.jeiCanvas = null;
+        this.jeiCanvasUid = null;
         this.selectedUid = newProject.recipes().isEmpty() ? null : newProject.recipes().get(0).uid();
         projectNameField.setText(newProject.name(), false);
         refreshAll();
@@ -203,6 +209,21 @@ public class KjsGenUI {
         typeLabel = new Label();
         typeLabel.setText("");
 
+        UIElement typeRow = new UIElement();
+        typeRow.layout(layout -> layout
+                .flexDirection(FlexDirection.ROW)
+                .widthPercent(100)
+                .alignItems(AlignItems.CENTER)
+                .gapAll(3));
+        UIElement typeSpacer = new UIElement();
+        typeSpacer.layout(layout -> layout.flex(1));
+        Button layoutButton = new Button();
+        layoutButton.setText("kjsgen.ui.edit_layout");
+        layoutButton.setOnClick(e -> selectedRecipe()
+                .flatMap(recipe -> RecipeTypeRegistry.get(recipe.typeId()))
+                .ifPresent(type -> LayoutEditorDialog.show(this, type)));
+        typeRow.addChildren(typeLabel, typeSpacer, layoutButton);
+
         canvasHolder = new UIElement();
         canvasHolder.layout(layout -> layout
                 .widthPercent(100)
@@ -217,7 +238,7 @@ public class KjsGenUI {
                 .flexDirection(FlexDirection.COLUMN)
                 .gapAll(1));
 
-        panel.addChildren(typeLabel, canvasHolder, validationBox);
+        panel.addChildren(typeRow, canvasHolder, validationBox);
         return panel;
     }
 
@@ -348,6 +369,14 @@ public class KjsGenUI {
         List<RecipeValidator.Issue> issues = RecipeValidator.validate(recipe, type);
         issues.addAll(RecipeValidator.validateProject(project));
 
+        // Live JEI render: for types imported from a JEI category, draw the mod's real
+        // panel (machine, arrows, custom text) with the user's items in the slots.
+        // Falls back to the static slot canvas below when JEI/world/sample isn't available.
+        if (tryAddJeiCanvas(recipe, type, issues)) {
+            addValidationMessages(issues);
+            return;
+        }
+
         UIElement canvas = new UIElement();
         canvas.layout(layout -> layout.width(type.canvasWidth()).height(type.canvasHeight()));
 
@@ -358,6 +387,48 @@ public class KjsGenUI {
             canvas.addChild(buildCanvasSlot(recipe, type, slotDef, issues));
         }
         canvasHolder.addChild(canvas);
+        addValidationMessages(issues);
+    }
+
+    /**
+     * Adds a live JEI-rendered canvas for the selected recipe when possible.
+     * The built element is cached per recipe uid so text/param edits (which
+     * trigger frequent canvas refreshes) don't rebuild the JEI layout each time.
+     *
+     * @return true when a live canvas was added (skip the static canvas)
+     */
+    /** Drops the cached live JEI canvas (e.g. after the type's layout was customized). */
+    void invalidateJeiCanvas() {
+        jeiCanvas = null;
+        jeiCanvasUid = null;
+    }
+
+    private boolean tryAddJeiCanvas(RecipeInstance recipe, RecipeTypeDefinition type,
+                                    List<RecipeValidator.Issue> issues) {
+        if (!com.zizazr.kjsgen.KjsGen.isJeiLoaded()
+                || !com.zizazr.kjsgen.integration.jei.JeiCanvasFacade.runtimeAvailable()) {
+            return false;
+        }
+        if (jeiCanvas == null || !recipe.uid().equals(jeiCanvasUid)) {
+            jeiCanvas = com.zizazr.kjsgen.integration.jei.JeiCanvasFacade.tryCreateCanvas(
+                    this, recipe, type, () -> {
+                        refreshList();
+                        refreshDerived();
+                    });
+            jeiCanvasUid = recipe.uid();
+        }
+        if (jeiCanvas != null) {
+            com.zizazr.kjsgen.integration.jei.JeiCanvasFacade.updateValidation(jeiCanvas, issues.stream()
+                    .filter(issue -> issue.severity() == RecipeValidator.Severity.ERROR && !issue.slotKey().isEmpty())
+                    .map(RecipeValidator.Issue::slotKey)
+                    .collect(java.util.stream.Collectors.toSet()));
+            canvasHolder.addChild(jeiCanvas);
+            return true;
+        }
+        return false;
+    }
+
+    private void addValidationMessages(List<RecipeValidator.Issue> issues) {
 
         // validation messages under the canvas
         issues.stream().limit(3).forEach(issue -> {
