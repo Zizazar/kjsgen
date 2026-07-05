@@ -167,6 +167,11 @@ public final class RecipeInstance {
         return value.equalsIgnoreCase("true");
     }
 
+    /** Raw stored parameter value with no type-default fallback; empty when unset. */
+    public String paramRaw(String key) {
+        return parameters.getOrDefault(key, "");
+    }
+
     public void setParam(String key, String value) {
         if (value == null || value.isEmpty()) {
             parameters.remove(key);

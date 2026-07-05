@@ -48,7 +48,15 @@ public final class JsUtil {
     /**
      * Result expression for outputs: {@code 'minecraft:stone'},
      * {@code '3x minecraft:stone'}, {@code Item.of(...)} for component data,
-     * with {@code .withChance(...)} appended when a chance below 1 is set.
+     * wrapped in {@code CreateItem.of(item, chance)} when a chance below 1 is
+     * set. {@code Item.of(...).withChance(...)} was removed by KubeJS itself on
+     * MC 1.21 ("no longer supported... use the chance item implementation of
+     * the relevant mod addon") — {@code CreateItem} is the KubeJS Create addon's
+     * replacement ({@code KubeCreateOutput.of(ItemStack, double)}, bound as the
+     * global {@code CreateItem}, chance 0.0-1.0 same scale as the old API).
+     * Every slot with {@code allowsChance} today belongs to a Create recipe
+     * type, so this is safe; a future addon with its own chance slots would
+     * need its own wrapper here.
      */
     public static String output(SlotContent content) {
         String base = switch (content.kind()) {
@@ -68,10 +76,7 @@ public final class JsUtil {
             case CHEMICAL_TAG -> quote(content.amount() + "x #" + content.id()); // tags are not valid outputs; validator rejects this
         };
         if (content.chance() < 1.0f && content.kind() == com.zizazr.kjsgen.core.ContentKind.ITEM) {
-            if (!base.startsWith("Item.of(")) {
-                base = "Item.of(" + base + ")";
-            }
-            base = base + ".withChance(" + trimFloat(content.chance()) + ")";
+            base = "CreateItem.of(" + base + ", " + trimFloat(content.chance()) + ")";
         }
         return base;
     }

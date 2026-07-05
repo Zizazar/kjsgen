@@ -1,7 +1,7 @@
 {
-  "id": "kjsgen:create_mixing",
+  "id": "kjsgen:create_compacting",
   "mod": "create",
-  "icon": "create:mechanical_mixer",
+  "icon": "create:mechanical_press",
   "width": 118,
   "height": 58,
   "slots": [
@@ -16,7 +16,7 @@
   ],
   "parameters": [
     { "key": "heat", "type": "ENUM", "default": "none", "options": ["none", "heated", "superheated"] },
-    { "key": "__template", "type": "STRING", "default": "event.recipes.create.mixing([{outputs}], [{inputs}]){opt_call:heat}" }
+    { "key": "__template", "type": "STRING", "default": "event.recipes.create.compacting([{outputs}], [{inputs}]){opt_call:heat}" }
   ],
   "codegen": "kjsgen:template",
   "requiresMod": "create"

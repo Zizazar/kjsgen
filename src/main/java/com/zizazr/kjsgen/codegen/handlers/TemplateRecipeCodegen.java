@@ -32,6 +32,14 @@ import java.util.regex.Pattern;
  *       its chance are two adjacent positional args (e.g. Mekanism sawing).</li>
  *   <li>{@code {param:KEY}} — raw parameter value (numbers, booleans)</li>
  *   <li>{@code {param_str:KEY}} — parameter value as a quoted JS string</li>
+ *   <li>{@code {opt_call:KEY}} — a chained modifier whose method name IS the
+ *       parameter value: expands to {@code .VALUE()} unless the value is empty,
+ *       {@code "none"} or {@code "false"} (used for Create's mixing/compacting
+ *       heat: an enum param {@code heat} of {@code none|heated|superheated}).</li>
+ *   <li>{@code {flag_call:METHOD:KEY}} — a chained no-arg modifier gated on a
+ *       boolean param: expands to {@code .METHOD()} when param {@code KEY} is
+ *       truthy and to nothing otherwise (e.g. the deployer's
+ *       {@code .keepHeldItem()}).</li>
  *   <li>{@code {id}} — the recipe id (quoted), {@code {group}} — the group (quoted)</li>
  *   <li>{@code {inputs}} / {@code {outputs}} — comma-joined list of all
  *       <b>filled</b> input/output slots (for machines with a variable number
@@ -41,7 +49,7 @@ import java.util.regex.Pattern;
  * automatic {@code .id(...)} suffix for syntaxes that don't support it.
  */
 public class TemplateRecipeCodegen implements RecipeCodegen {
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{(slot|opt_slot|param|param_str):([A-Za-z0-9_.\\-]+)}|\\{opt_slot_chance:([A-Za-z0-9_.\\-]+):([A-Za-z0-9_.\\-]+)}|\\{id}|\\{group}|\\{inputs}|\\{outputs}");
+    private static final Pattern PLACEHOLDER = Pattern.compile("\\{(slot|opt_slot|param|param_str|opt_call):([A-Za-z0-9_.\\-]+)}|\\{opt_slot_chance:([A-Za-z0-9_.\\-]+):([A-Za-z0-9_.\\-]+)}|\\{flag_call:([A-Za-z0-9_.\\-]+):([A-Za-z0-9_.\\-]+)}|\\{id}|\\{group}|\\{inputs}|\\{outputs}");
 
     @Override
     public String generate(RecipeInstance recipe, RecipeTypeDefinition type) {
@@ -66,6 +74,10 @@ public class TemplateRecipeCodegen implements RecipeCodegen {
                     replacement = ", " + slotExpr(recipe, type, slotKey)
                             + ", " + recipe.param(type, matcher.group(4));
                 }
+            } else if (matcher.group(5) != null) {
+                // {flag_call:METHOD:KEY}
+                replacement = truthy(recipe.param(type, matcher.group(6)))
+                        ? "." + matcher.group(5) + "()" : "";
             } else if (matcher.group(1) == null) {
                 replacement = switch (matcher.group()) {
                     case "{id}" -> JsUtil.quote(recipe.recipeId());
@@ -81,6 +93,10 @@ public class TemplateRecipeCodegen implements RecipeCodegen {
                     case "opt_slot" -> recipe.slot(key).isEmpty() ? "" : ", " + slotExpr(recipe, type, key);
                     case "param" -> recipe.param(type, key);
                     case "param_str" -> JsUtil.quote(recipe.param(type, key));
+                    case "opt_call" -> {
+                        String value = recipe.param(type, key).trim();
+                        yield truthy(value) ? "." + value + "()" : "";
+                    }
                     default -> matcher.group();
                 };
             }
@@ -91,6 +107,13 @@ public class TemplateRecipeCodegen implements RecipeCodegen {
             ShapedRecipeCodegen.appendCommonSuffix(js, recipe);
         }
         return js.toString();
+    }
+
+    /** A parameter value counts as "on" unless empty / "false" / "none" / "0". */
+    private static boolean truthy(String value) {
+        String v = value.trim();
+        return !v.isEmpty() && !v.equalsIgnoreCase("false")
+                && !v.equalsIgnoreCase("none") && !v.equals("0");
     }
 
     /** Ingredient expression for input/catalyst slots, result expression for output slots. */

@@ -2,6 +2,8 @@ package com.zizazr.kjsgen.codegen;
 
 import com.zizazr.kjsgen.codegen.handlers.BrewingRecipeCodegen;
 import com.zizazr.kjsgen.codegen.handlers.CookingRecipeCodegen;
+import com.zizazr.kjsgen.codegen.handlers.CreateMechanicalCraftingCodegen;
+import com.zizazr.kjsgen.codegen.handlers.CreateSequencedAssemblyCodegen;
 import com.zizazr.kjsgen.codegen.handlers.ShapedRecipeCodegen;
 import com.zizazr.kjsgen.codegen.handlers.ShapelessRecipeCodegen;
 import com.zizazr.kjsgen.codegen.handlers.SmithingRecipeCodegen;
@@ -41,6 +43,9 @@ public final class CodegenRegistry {
         register("kjsgen:smithing_transform", new SmithingRecipeCodegen(false));
         register("kjsgen:smithing_trim", new SmithingRecipeCodegen(true));
         register("kjsgen:brewing", new BrewingRecipeCodegen());
+        // Create recipe types that need a custom generator (variable grid / stage chain).
+        register("kjsgen:create_mechanical_crafting", new CreateMechanicalCraftingCodegen());
+        register("kjsgen:create_sequenced_assembly", new CreateSequencedAssemblyCodegen());
         // Data-driven codegen for addon types declared purely in JSON.
         register("kjsgen:template", new TemplateRecipeCodegen());
     }

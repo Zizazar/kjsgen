@@ -22,6 +22,9 @@ import java.util.Optional;
  * @param parameters   editable parameters
  * @param codegenId    id of the registered codegen handler
  * @param requiresMod  optional mod id that must be present for the exported script to work (adds Platform.isLoaded hint)
+ * @param editorKind   special editor UI for this type: {@code ""} = the standard fixed-slot canvas,
+ *                     {@code "grid"} = a resizable WxH crafting grid (Create mechanical crafting),
+ *                     {@code "sequence"} = a vertical, reorderable stage list (Create sequenced assembly)
  */
 public record RecipeTypeDefinition(
         String id,
@@ -33,8 +36,16 @@ public record RecipeTypeDefinition(
         List<LayoutDecoration> decorations,
         List<ParameterDefinition> parameters,
         String codegenId,
-        String requiresMod
+        String requiresMod,
+        String editorKind
 ) {
+    /** Backwards-compatible constructor for the common standard-canvas type. */
+    public RecipeTypeDefinition(String id, String modId, String iconItem, int canvasWidth, int canvasHeight,
+                                List<SlotDefinition> slots, List<LayoutDecoration> decorations,
+                                List<ParameterDefinition> parameters, String codegenId, String requiresMod) {
+        this(id, modId, iconItem, canvasWidth, canvasHeight, slots, decorations, parameters,
+                codegenId, requiresMod, "");
+    }
     /** Translation key of the display name, e.g. "kjsgen.recipe_type.kjsgen.shaped". */
     public String translationKey() {
         return "kjsgen.recipe_type." + id.replace(':', '.');
@@ -84,6 +95,7 @@ public record RecipeTypeDefinition(
         json.add("parameters", paramArr);
         json.addProperty("codegen", codegenId);
         if (!requiresMod.isEmpty()) json.addProperty("requiresMod", requiresMod);
+        if (!editorKind.isEmpty()) json.addProperty("editorKind", editorKind);
         return json;
     }
 
@@ -110,7 +122,8 @@ public record RecipeTypeDefinition(
                 List.copyOf(decorations),
                 List.copyOf(parameters),
                 json.has("codegen") ? json.get("codegen").getAsString() : "",
-                json.has("requiresMod") ? json.get("requiresMod").getAsString() : ""
+                json.has("requiresMod") ? json.get("requiresMod").getAsString() : "",
+                json.has("editorKind") ? json.get("editorKind").getAsString() : ""
         );
     }
 }

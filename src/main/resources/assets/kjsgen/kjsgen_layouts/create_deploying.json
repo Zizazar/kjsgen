@@ -1,0 +1,22 @@
+{
+  "id": "kjsgen:create_deploying",
+  "mod": "create",
+  "icon": "create:deployer",
+  "width": 82,
+  "height": 40,
+  "slots": [
+    { "key": "input", "role": "INPUT", "x": 0, "y": 0, "required": true, "item": true, "tag": true },
+    { "key": "held", "role": "INPUT", "x": 0, "y": 20, "required": true, "item": true, "tag": true },
+    { "key": "output", "role": "OUTPUT", "x": 60, "y": 0, "required": true, "item": true, "count": true, "chance": true },
+    { "key": "output2", "role": "OUTPUT", "x": 60, "y": 20, "required": false, "item": true, "count": true, "chance": true }
+  ],
+  "decorations": [
+    { "type": "ARROW", "x": 30, "y": 10 }
+  ],
+  "parameters": [
+    { "key": "keepHeldItem", "type": "BOOL", "default": "false" },
+    { "key": "__template", "type": "STRING", "default": "event.recipes.create.deploying([{outputs}], [{slot:input}, {slot:held}]){flag_call:keepHeldItem:keepHeldItem}" }
+  ],
+  "codegen": "kjsgen:template",
+  "requiresMod": "create"
+}

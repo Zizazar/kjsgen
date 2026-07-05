@@ -1,0 +1,20 @@
+{
+  "id": "kjsgen:create_filling",
+  "mod": "create",
+  "icon": "create:spout",
+  "width": 82,
+  "height": 38,
+  "slots": [
+    { "key": "base", "role": "INPUT", "x": 0, "y": 0, "required": true, "item": true, "tag": true },
+    { "key": "fluid", "role": "INPUT", "x": 0, "y": 18, "required": true, "item": false, "fluid": true, "tag": true },
+    { "key": "output", "role": "OUTPUT", "x": 60, "y": 9, "required": true, "item": true, "count": true }
+  ],
+  "decorations": [
+    { "type": "ARROW", "x": 30, "y": 10 }
+  ],
+  "parameters": [
+    { "key": "__template", "type": "STRING", "default": "event.recipes.create.filling({slot:output}, [{slot:base}, {slot:fluid}])" }
+  ],
+  "codegen": "kjsgen:template",
+  "requiresMod": "create"
+}

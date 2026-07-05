@@ -1,0 +1,18 @@
+{
+  "id": "kjsgen:create_mechanical_crafting",
+  "mod": "create",
+  "icon": "create:mechanical_crafter",
+  "width": 176,
+  "height": 176,
+  "slots": [
+    { "key": "output", "role": "OUTPUT", "x": 0, "y": 0, "required": true, "item": true, "count": true }
+  ],
+  "decorations": [],
+  "parameters": [
+    { "key": "gridW", "type": "INT", "default": "3" },
+    { "key": "gridH", "type": "INT", "default": "3" }
+  ],
+  "codegen": "kjsgen:create_mechanical_crafting",
+  "requiresMod": "create",
+  "editorKind": "grid"
+}

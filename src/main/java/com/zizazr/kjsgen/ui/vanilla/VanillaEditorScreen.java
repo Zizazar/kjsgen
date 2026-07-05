@@ -70,6 +70,11 @@ public class VanillaEditorScreen extends Screen {
     // ---- transient per-frame ---------------------------------------------
     private List<Component> hoverTooltip;
 
+    // ---- special editors (mechanical crafting grid / sequenced assembly) --
+    private final VanillaSequencePanel sequencePanel = new VanillaSequencePanel();
+    private int gridOriginX, gridOriginY, gridCols, gridRows;
+    private int gridOutputX, gridOutputY;
+
     public VanillaEditorScreen() {
         super(Component.translatable("kjsgen.title"));
     }
@@ -479,6 +484,18 @@ public class VanillaEditorScreen extends Screen {
             return;
         }
 
+        if (type.editorKind().equals("sequence")) {
+            sequencePanel.render(g, this, recipe, type, canvasBoxX, canvasBoxY, canvasBoxW, canvasBoxH,
+                    mouseX, mouseY);
+            drawValidation(g);
+            return;
+        }
+        if (type.editorKind().equals("grid")) {
+            drawGridCanvas(g, recipe, type, mouseX, mouseY);
+            drawValidation(g);
+            return;
+        }
+
         canvasOriginX = canvasBoxX + Math.max(4, (canvasBoxW - type.canvasWidth()) / 2);
         canvasOriginY = canvasBoxY + Math.max(4, (canvasBoxH - type.canvasHeight()) / 2);
 
@@ -509,6 +526,97 @@ public class VanillaEditorScreen extends Screen {
         g.disableScissor();
 
         drawValidation(g);
+    }
+
+    // ---- mechanical crafting grid canvas --------------------------------
+
+    private void drawGridCanvas(GuiGraphics g, RecipeInstance recipe, RecipeTypeDefinition type,
+                               int mouseX, int mouseY) {
+        gridCols = com.zizazr.kjsgen.core.CreateSpecialModel.gridW(recipe, type);
+        gridRows = com.zizazr.kjsgen.core.CreateSpecialModel.gridH(recipe, type);
+        int gridPixW = gridCols * 18;
+        int gridPixH = gridRows * 18;
+        int arrowGap = 6, arrowW = 22, outGap = 8, outW = 18;
+        int contentW = gridPixW + arrowGap + arrowW + outGap + outW;
+        int contentH = Math.max(gridPixH, 18);
+        gridOriginX = canvasBoxX + Math.max(4, (canvasBoxW - contentW) / 2);
+        gridOriginY = canvasBoxY + Math.max(4, (canvasBoxH - contentH) / 2);
+        gridOutputX = gridOriginX + gridPixW + arrowGap + arrowW + outGap;
+        gridOutputY = gridOriginY + gridPixH / 2 - 9;
+
+        g.enableScissor(canvasBoxX + 1, canvasBoxY + 1, canvasBoxX + canvasBoxW - 1, canvasBoxY + canvasBoxH - 1);
+        for (int row = 0; row < gridRows; row++) {
+            for (int col = 0; col < gridCols; col++) {
+                int sx = gridOriginX + col * 18;
+                int sy = gridOriginY + row * 18;
+                boolean hovered = slotHovered(mouseX, mouseY, sx, sy);
+                VanillaTheme.slot(g, sx, sy, hovered);
+                SlotContent content = recipe.slot(
+                        com.zizazr.kjsgen.core.CreateSpecialModel.cellKey(row, col));
+                drawSlotContent(g, sx, sy, content);
+            }
+        }
+        drawDecoration(g, LayoutDecoration.arrow(0, 0),
+                gridOriginX + gridPixW + arrowGap, gridOriginY + gridPixH / 2 - 8);
+        boolean outHover = slotHovered(mouseX, mouseY, gridOutputX, gridOutputY);
+        VanillaTheme.slot(g, gridOutputX, gridOutputY, outHover);
+        SlotContent output = recipe.slot("output");
+        drawSlotContent(g, gridOutputX, gridOutputY, output);
+        if (issues.stream().anyMatch(is -> is.slotKey().equals("output"))) {
+            g.renderOutline(gridOutputX, gridOutputY, 18, 18, VanillaTheme.ERROR);
+        }
+        g.disableScissor();
+
+        g.drawString(this.font, gridCols + "x" + gridRows,
+                gridOriginX, gridOriginY - 10, VanillaTheme.TEXT_DIM, true);
+    }
+
+    /** Grid-canvas click: edit a cell or the output slot. Returns true if handled. */
+    private boolean clickGridCanvas(double mouseX, double mouseY, int button, RecipeInstance recipe) {
+        for (int row = 0; row < gridRows; row++) {
+            for (int col = 0; col < gridCols; col++) {
+                int sx = gridOriginX + col * 18;
+                int sy = gridOriginY + row * 18;
+                if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
+                    String key = com.zizazr.kjsgen.core.CreateSpecialModel.cellKey(row, col);
+                    if (button == 1) {
+                        recipe.setSlot(key, SlotContent.EMPTY);
+                        markDirty();
+                    } else if (this.minecraft != null) {
+                        this.minecraft.setScreen(new VanillaSlotEditScreen(this, recipe,
+                                com.zizazr.kjsgen.core.CreateSpecialModel.cellSlot(row, col)));
+                    }
+                    return true;
+                }
+            }
+        }
+        if (mouseX >= gridOutputX && mouseX < gridOutputX + 18
+                && mouseY >= gridOutputY && mouseY < gridOutputY + 18) {
+            SlotDefinition outDef = RecipeTypeRegistry.get(recipe.typeId())
+                    .flatMap(t -> t.slot("output")).orElse(null);
+            if (outDef != null) {
+                if (button == 1) {
+                    recipe.setSlot("output", SlotContent.EMPTY);
+                    markDirty();
+                } else if (this.minecraft != null) {
+                    this.minecraft.setScreen(new VanillaSlotEditScreen(this, recipe, outDef));
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    // ---- shared helpers used by the sequence panel ----------------------
+
+    boolean hasSlotIssue(String key) {
+        return issues.stream().anyMatch(is -> is.slotKey().equals(key));
+    }
+
+    void editSlotDef(RecipeInstance recipe, SlotDefinition def) {
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(new VanillaSlotEditScreen(this, recipe, def));
+        }
     }
 
     // ---- list slots (dynamic ingredient list + '+' button) --------------
@@ -566,7 +674,7 @@ public class VanillaEditorScreen extends Screen {
     }
 
     /** Draw the item/tag/fluid/chemical icon of one slot's content (no slot background). */
-    private void drawSlotContent(GuiGraphics g, int sx, int sy, SlotContent content) {
+    void drawSlotContent(GuiGraphics g, int sx, int sy, SlotContent content) {
         if (content.isEmpty()) {
             return;
         }
@@ -588,6 +696,31 @@ public class VanillaEditorScreen extends Screen {
         if (content.kind().isTag()) {
             g.drawString(this.font, "#", sx + 1, sy + 1, VanillaTheme.WARN, true);
         }
+        drawChanceBadge(g, sx, sy, content);
+    }
+
+    /** Draw the output chance as a small "%NN" badge in the slot's top-left corner. */
+    private void drawChanceBadge(GuiGraphics g, int sx, int sy, SlotContent content) {
+        if (content.isEmpty() || content.chance() >= 1.0f) {
+            return;
+        }
+        String label = chancePercent(content.chance());
+        float scale = 0.5f;
+        int w = (int) Math.ceil(this.font.width(label) * scale);
+        // dark plate for legibility over the item icon
+        g.fill(sx + 1, sy + 1, sx + 2 + w, sy + 6, 0xC0000000);
+        g.pose().pushPose();
+        g.pose().translate(sx + 1.5f, sy + 1.5f, 200f);
+        g.pose().scale(scale, scale, 1f);
+        g.drawString(this.font, label, 0, 0, 0xFFFFE066, false);
+        g.pose().popPose();
+    }
+
+    /** "50%", "12.5%" — trims a trailing ".0". */
+    private static String chancePercent(float chance) {
+        float pct = chance * 100f;
+        String num = pct == Math.floor(pct) ? Integer.toString((int) pct) : Float.toString(pct);
+        return num + "%";
     }
 
     private boolean slotHovered(int mouseX, int mouseY, int sx, int sy) {
@@ -761,6 +894,12 @@ public class VanillaEditorScreen extends Screen {
         RecipeTypeDefinition type = recipe == null ? null
                 : RecipeTypeRegistry.get(recipe.typeId()).orElse(null);
         if (recipe != null && type != null && inside(mouseX, mouseY, canvasBoxX, canvasBoxY, canvasBoxW, canvasBoxH)) {
+            if (type.editorKind().equals("sequence")) {
+                return sequencePanel.mouseClicked(this, recipe, type, mouseX, mouseY, button);
+            }
+            if (type.editorKind().equals("grid")) {
+                return clickGridCanvas(mouseX, mouseY, button, recipe);
+            }
             for (SlotDefinition slotDef : type.slots()) {
                 if (slotDef.list()) {
                     if (clickListSlot(mouseX, mouseY, button, recipe, slotDef)) {
@@ -805,7 +944,41 @@ public class VanillaEditorScreen extends Screen {
             previewScroll = Math.max(0, Math.min(previewScroll + (int) (-scrollY * 12), max));
             return true;
         }
+        if (inside(mouseX, mouseY, canvasBoxX, canvasBoxY, canvasBoxW, canvasBoxH)
+                && selectedTypeHasEditorKind("sequence")) {
+            sequencePanel.mouseScrolled(scrollY);
+            return true;
+        }
         return false;
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (selectedTypeHasEditorKind("sequence")
+                && sequencePanel.mouseDragged(mouseX, mouseY)) {
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        RecipeInstance recipe = selectedRecipe().orElse(null);
+        RecipeTypeDefinition type = recipe == null ? null
+                : RecipeTypeRegistry.get(recipe.typeId()).orElse(null);
+        if (recipe != null && type != null && type.editorKind().equals("sequence")) {
+            sequencePanel.mouseReleased(recipe, type);
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private boolean selectedTypeHasEditorKind(String kind) {
+        RecipeInstance recipe = selectedRecipe().orElse(null);
+        if (recipe == null) {
+            return false;
+        }
+        return RecipeTypeRegistry.get(recipe.typeId())
+                .map(t -> t.editorKind().equals(kind)).orElse(false);
     }
 
     private boolean inside(double mx, double my, int x, int y, int w, int h) {

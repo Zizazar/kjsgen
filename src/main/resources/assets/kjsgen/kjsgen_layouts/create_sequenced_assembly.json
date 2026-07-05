@@ -1,0 +1,22 @@
+{
+  "id": "kjsgen:create_sequenced_assembly",
+  "mod": "create",
+  "icon": "create:depot",
+  "width": 120,
+  "height": 120,
+  "slots": [
+    { "key": "input", "role": "INPUT", "x": 0, "y": 0, "required": true, "item": true, "tag": true },
+    { "key": "transitional", "role": "INPUT", "x": 0, "y": 0, "required": true, "item": true },
+    { "key": "output", "role": "OUTPUT", "x": 0, "y": 0, "required": true, "item": true, "count": true, "chance": true },
+    { "key": "output2", "role": "OUTPUT", "x": 0, "y": 0, "required": false, "item": true, "count": true, "chance": true },
+    { "key": "output3", "role": "OUTPUT", "x": 0, "y": 0, "required": false, "item": true, "count": true, "chance": true }
+  ],
+  "decorations": [],
+  "parameters": [
+    { "key": "loops", "type": "INT", "default": "1" },
+    { "key": "__seqLen", "type": "INT", "default": "0" }
+  ],
+  "codegen": "kjsgen:create_sequenced_assembly",
+  "requiresMod": "create",
+  "editorKind": "sequence"
+}
