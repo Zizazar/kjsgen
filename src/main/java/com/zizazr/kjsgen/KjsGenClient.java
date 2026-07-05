@@ -37,6 +37,15 @@ public class KjsGenClient {
             "key.categories.kjsgen"
     ));
 
+    /** Opens the experimental LDLib2-free (pure vanilla Screen) editor for look comparison. */
+    public static final Lazy<KeyMapping> OPEN_EDITOR_VANILLA = Lazy.of(() -> new KeyMapping(
+            "key.kjsgen.open_editor_vanilla",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_J,
+            "key.categories.kjsgen"
+    ));
+
     public KjsGenClient(ModContainer container) {
         NeoForge.EVENT_BUS.addListener(KjsGenClient::onClientTick);
     }
@@ -44,6 +53,7 @@ public class KjsGenClient {
     @SubscribeEvent
     static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(OPEN_EDITOR.get());
+        event.register(OPEN_EDITOR_VANILLA.get());
     }
 
     @SubscribeEvent
@@ -57,21 +67,41 @@ public class KjsGenClient {
         while (OPEN_EDITOR.get().consumeClick()) {
             openEditor();
         }
+        while (OPEN_EDITOR_VANILLA.get().consumeClick()) {
+            openEditorVanilla();
+        }
+    }
+
+    /** True when the local player may use the (dev-only) editor. */
+    private static boolean mayEdit(Minecraft mc) {
+        if (mc.player == null) {
+            return false;
+        }
+        if (!mc.hasSingleplayerServer() && !mc.player.hasPermissions(2)) {
+            mc.player.displayClientMessage(Component.translatable("kjsgen.error.no_permission"), false);
+            return false;
+        }
+        return true;
     }
 
     /** Opens the recipe editor if the local player is allowed to use it. */
     public static void openEditor() {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) {
-            return;
-        }
-        if (!mc.hasSingleplayerServer() && !mc.player.hasPermissions(2)) {
-            mc.player.displayClientMessage(Component.translatable("kjsgen.error.no_permission"), false);
+        if (!mayEdit(mc)) {
             return;
         }
         KjsGenUI workspace = new KjsGenUI();
         ModularUI modularUI = new ModularUI(workspace.buildUI())
                 .shouldCloseOnKeyInventory(false);
         mc.setScreen(new ModularUIScreen(modularUI, Component.translatable("kjsgen.title")));
+    }
+
+    /** Opens the pure-vanilla (LDLib2-free) editor screen. */
+    public static void openEditorVanilla() {
+        Minecraft mc = Minecraft.getInstance();
+        if (!mayEdit(mc)) {
+            return;
+        }
+        mc.setScreen(new com.zizazr.kjsgen.ui.vanilla.VanillaEditorScreen());
     }
 }

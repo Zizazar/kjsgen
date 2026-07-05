@@ -32,6 +32,8 @@ public final class ContentSlotFactory {
             case ITEM -> new ItemSlot().setItem(stackOf(content));
             case ITEM_TAG -> tagElement(content);
             case FLUID, FLUID_TAG -> fluidElement(content);
+            // legacy LDLib2 UI has no chemical render; show a generic placeholder
+            case CHEMICAL, CHEMICAL_TAG -> new ItemSlot().setItem(new ItemStack(Items.GLASS_BOTTLE));
         };
     }
 

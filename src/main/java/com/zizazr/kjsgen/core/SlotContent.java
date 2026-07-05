@@ -48,6 +48,14 @@ public final class SlotContent {
         return new SlotContent(ContentKind.FLUID_TAG, stripHash(tagId), 1, amountMb, 1.0f, "");
     }
 
+    public static SlotContent chemical(String id, int amountMb) {
+        return new SlotContent(ContentKind.CHEMICAL, id, 1, amountMb, 1.0f, "");
+    }
+
+    public static SlotContent chemicalTag(String tagId, int amountMb) {
+        return new SlotContent(ContentKind.CHEMICAL_TAG, stripHash(tagId), 1, amountMb, 1.0f, "");
+    }
+
     private static String stripHash(String s) {
         return s != null && s.startsWith("#") ? s.substring(1) : s;
     }
@@ -104,8 +112,8 @@ public final class SlotContent {
         return switch (kind) {
             case ITEM -> (count > 1 ? count + "x " : "") + id;
             case ITEM_TAG -> "#" + id;
-            case FLUID -> amount + "mB " + id;
-            case FLUID_TAG -> amount + "mB #" + id;
+            case FLUID, CHEMICAL -> amount + "mB " + id;
+            case FLUID_TAG, CHEMICAL_TAG -> amount + "mB #" + id;
             case EMPTY -> "-";
         };
     }

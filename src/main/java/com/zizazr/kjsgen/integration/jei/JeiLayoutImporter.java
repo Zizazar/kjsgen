@@ -171,7 +171,8 @@ public final class JeiLayoutImporter {
             int dy = Math.max(0, -minY);
             slots = slots.stream()
                     .map(s -> new SlotDefinition(s.key(), s.role(), s.x() + dx, s.y() + dy, s.required(),
-                            s.allowsItem(), s.allowsTag(), s.allowsFluid(), s.allowsCount(), s.allowsChance()))
+                            s.allowsItem(), s.allowsTag(), s.allowsFluid(), s.allowsChemical(),
+                            s.allowsCount(), s.allowsChance(), s.list()))
                     .toList();
         }
 

@@ -238,6 +238,8 @@ public final class SlotEditDialog {
             case ITEM_TAG -> SlotContent.itemTag(id);
             case FLUID -> SlotContent.fluid(id, amount);
             case FLUID_TAG -> SlotContent.fluidTag(id, amount);
+            case CHEMICAL -> SlotContent.chemical(id, amount);
+            case CHEMICAL_TAG -> SlotContent.chemicalTag(id, amount);
             case EMPTY -> SlotContent.EMPTY;
         };
     }

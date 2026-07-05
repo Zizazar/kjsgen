@@ -30,22 +30,25 @@ public final class RecipeValidator {
     public static List<Issue> validate(RecipeInstance recipe, RecipeTypeDefinition type) {
         List<Issue> issues = new ArrayList<>();
         for (SlotDefinition slot : type.slots()) {
+            if (slot.list()) {
+                List<SlotContent> entries = recipe.listSlots(slot.key());
+                if (slot.required() && entries.isEmpty()) {
+                    issues.add(new Issue(Severity.ERROR, slot.key(), "kjsgen.validation.required_slot_empty"));
+                }
+                for (SlotContent entry : entries) {
+                    validateContent(issues, slot, entry);
+                }
+                continue;
+            }
             SlotContent content = recipe.slot(slot.key());
             if (slot.required() && content.isEmpty()) {
                 issues.add(new Issue(Severity.ERROR, slot.key(), "kjsgen.validation.required_slot_empty"));
             }
-            if (!content.isEmpty()) {
-                if (!slot.accepts(content.kind())) {
-                    issues.add(new Issue(Severity.ERROR, slot.key(), "kjsgen.validation.content_not_allowed"));
-                }
-                if (ResourceLocation.tryParse(content.id()) == null) {
-                    issues.add(new Issue(Severity.ERROR, slot.key(), "kjsgen.validation.bad_id", content.id()));
-                }
-            }
+            validateContent(issues, slot, content);
         }
         // shaped crafting needs at least one input even though individual slots are optional
         if (type.slotsByRole(SlotRole.INPUT).stream().noneMatch(SlotDefinition::required)
-                && type.slotsByRole(SlotRole.INPUT).stream().allMatch(s -> recipe.slot(s.key()).isEmpty())
+                && type.slotsByRole(SlotRole.INPUT).stream().allMatch(s -> inputEmpty(recipe, s))
                 && !type.slotsByRole(SlotRole.INPUT).isEmpty()) {
             issues.add(new Issue(Severity.ERROR, "", "kjsgen.validation.no_inputs"));
         }
@@ -59,6 +62,22 @@ public final class RecipeValidator {
             }
         }
         return issues;
+    }
+
+    private static void validateContent(List<Issue> issues, SlotDefinition slot, SlotContent content) {
+        if (content.isEmpty()) {
+            return;
+        }
+        if (!slot.accepts(content.kind())) {
+            issues.add(new Issue(Severity.ERROR, slot.key(), "kjsgen.validation.content_not_allowed"));
+        }
+        if (ResourceLocation.tryParse(content.id()) == null) {
+            issues.add(new Issue(Severity.ERROR, slot.key(), "kjsgen.validation.bad_id", content.id()));
+        }
+    }
+
+    private static boolean inputEmpty(RecipeInstance recipe, SlotDefinition slot) {
+        return slot.list() ? recipe.listSlots(slot.key()).isEmpty() : recipe.slot(slot.key()).isEmpty();
     }
 
     /** Project-level validation: duplicate explicit recipe ids. */

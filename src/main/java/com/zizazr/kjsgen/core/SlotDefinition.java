@@ -14,8 +14,13 @@ import com.google.gson.JsonObject;
  * @param allowsItem slot accepts items
  * @param allowsTag  slot accepts item/fluid tags (inputs usually do, outputs don't)
  * @param allowsFluid slot accepts fluids
+ * @param allowsChemical slot accepts Mekanism chemicals (gases etc., registry {@code mekanism:chemical})
  * @param allowsCount user may edit the stack count (usually only outputs / shapeless inputs)
  * @param allowsChance user may set an output chance (machine byproducts etc.)
+ * @param list        the slot is a dynamic list: it renders as one slot plus a '+' button and
+ *                    can hold an arbitrary number of entries. Entries are stored in the recipe
+ *                    under the keys {@code key + index} ("in0", "in1", ...); see
+ *                    {@link RecipeInstance#listSlots(String)} / {@link RecipeInstance#setListSlot}.
  */
 public record SlotDefinition(
         String key,
@@ -26,15 +31,36 @@ public record SlotDefinition(
         boolean allowsItem,
         boolean allowsTag,
         boolean allowsFluid,
+        boolean allowsChemical,
         boolean allowsCount,
-        boolean allowsChance
+        boolean allowsChance,
+        boolean list
 ) {
+    /** Backwards-compatible constructor for the common (non-list, no-chemical) slot. */
+    public SlotDefinition(String key, SlotRole role, int x, int y, boolean required,
+                          boolean allowsItem, boolean allowsTag, boolean allowsFluid,
+                          boolean allowsCount, boolean allowsChance) {
+        this(key, role, x, y, required, allowsItem, allowsTag, allowsFluid, false, allowsCount, allowsChance, false);
+    }
+
+    /** Backwards-compatible constructor for list slots without chemical support. */
+    public SlotDefinition(String key, SlotRole role, int x, int y, boolean required,
+                          boolean allowsItem, boolean allowsTag, boolean allowsFluid,
+                          boolean allowsCount, boolean allowsChance, boolean list) {
+        this(key, role, x, y, required, allowsItem, allowsTag, allowsFluid, false, allowsCount, allowsChance, list);
+    }
+
     public static SlotDefinition input(String key, int x, int y, boolean required) {
         return new SlotDefinition(key, SlotRole.INPUT, x, y, required, true, true, false, false, false);
     }
 
     public static SlotDefinition output(String key, int x, int y, boolean required) {
         return new SlotDefinition(key, SlotRole.OUTPUT, x, y, required, true, false, false, true, false);
+    }
+
+    /** A dynamic list of item/tag inputs (one slot + a '+' button, entries auto-compact). */
+    public static SlotDefinition inputList(String key, int x, int y, boolean required, boolean allowsCount) {
+        return new SlotDefinition(key, SlotRole.INPUT, x, y, required, true, true, false, allowsCount, false, true);
     }
 
     public boolean accepts(ContentKind kind) {
@@ -44,6 +70,8 @@ public record SlotDefinition(
             case ITEM_TAG -> allowsItem && allowsTag;
             case FLUID -> allowsFluid;
             case FLUID_TAG -> allowsFluid && allowsTag;
+            case CHEMICAL -> allowsChemical;
+            case CHEMICAL_TAG -> allowsChemical && allowsTag;
         };
     }
 
@@ -57,8 +85,10 @@ public record SlotDefinition(
         json.addProperty("item", allowsItem);
         json.addProperty("tag", allowsTag);
         json.addProperty("fluid", allowsFluid);
+        if (allowsChemical) json.addProperty("chemical", true);
         json.addProperty("count", allowsCount);
         json.addProperty("chance", allowsChance);
+        if (list) json.addProperty("list", true);
         return json;
     }
 
@@ -72,8 +102,10 @@ public record SlotDefinition(
                 !json.has("item") || json.get("item").getAsBoolean(),
                 json.has("tag") && json.get("tag").getAsBoolean(),
                 json.has("fluid") && json.get("fluid").getAsBoolean(),
+                json.has("chemical") && json.get("chemical").getAsBoolean(),
                 json.has("count") && json.get("count").getAsBoolean(),
-                json.has("chance") && json.get("chance").getAsBoolean()
+                json.has("chance") && json.get("chance").getAsBoolean(),
+                json.has("list") && json.get("list").getAsBoolean()
         );
     }
 }

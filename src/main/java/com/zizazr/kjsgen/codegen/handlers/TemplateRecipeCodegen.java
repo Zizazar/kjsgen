@@ -22,6 +22,14 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>{@code {slot:KEY}} — the slot content as an ingredient (inputs/catalysts)
  *       or result expression (outputs)</li>
+ *   <li>{@code {opt_slot:KEY}} — like {@code {slot:KEY}} but for an optional
+ *       argument: expands to {@code ", EXPR"} (with a leading comma) when the
+ *       slot is filled, and to nothing when it is empty. Lets a template omit a
+ *       trailing optional argument entirely (e.g. the sawmill's extra output).</li>
+ *   <li>{@code {opt_slot_chance:SLOT:PARAM}} — an optional output paired with a
+ *       chance parameter: expands to {@code ", OUTPUT, PARAM"} when the slot is
+ *       filled and to nothing when empty. For syntaxes whose secondary output and
+ *       its chance are two adjacent positional args (e.g. Mekanism sawing).</li>
  *   <li>{@code {param:KEY}} — raw parameter value (numbers, booleans)</li>
  *   <li>{@code {param_str:KEY}} — parameter value as a quoted JS string</li>
  *   <li>{@code {id}} — the recipe id (quoted), {@code {group}} — the group (quoted)</li>
@@ -33,7 +41,7 @@ import java.util.regex.Pattern;
  * automatic {@code .id(...)} suffix for syntaxes that don't support it.
  */
 public class TemplateRecipeCodegen implements RecipeCodegen {
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{(slot|param|param_str):([A-Za-z0-9_.\\-]+)}|\\{id}|\\{group}|\\{inputs}|\\{outputs}");
+    private static final Pattern PLACEHOLDER = Pattern.compile("\\{(slot|opt_slot|param|param_str):([A-Za-z0-9_.\\-]+)}|\\{opt_slot_chance:([A-Za-z0-9_.\\-]+):([A-Za-z0-9_.\\-]+)}|\\{id}|\\{group}|\\{inputs}|\\{outputs}");
 
     @Override
     public String generate(RecipeInstance recipe, RecipeTypeDefinition type) {
@@ -49,7 +57,16 @@ public class TemplateRecipeCodegen implements RecipeCodegen {
         StringBuilder js = new StringBuilder();
         while (matcher.find()) {
             String replacement;
-            if (matcher.group(1) == null) {
+            if (matcher.group(3) != null) {
+                // {opt_slot_chance:SLOT:PARAM}
+                String slotKey = matcher.group(3);
+                if (recipe.slot(slotKey).isEmpty()) {
+                    replacement = "";
+                } else {
+                    replacement = ", " + slotExpr(recipe, type, slotKey)
+                            + ", " + recipe.param(type, matcher.group(4));
+                }
+            } else if (matcher.group(1) == null) {
                 replacement = switch (matcher.group()) {
                     case "{id}" -> JsUtil.quote(recipe.recipeId());
                     case "{group}" -> JsUtil.quote(recipe.group());
@@ -60,10 +77,8 @@ public class TemplateRecipeCodegen implements RecipeCodegen {
             } else {
                 String key = matcher.group(2);
                 replacement = switch (matcher.group(1)) {
-                    case "slot" -> {
-                        boolean isOutput = type.slot(key).map(s -> s.role() == SlotRole.OUTPUT).orElse(false);
-                        yield isOutput ? JsUtil.output(recipe.slot(key)) : JsUtil.ingredient(recipe.slot(key));
-                    }
+                    case "slot" -> slotExpr(recipe, type, key);
+                    case "opt_slot" -> recipe.slot(key).isEmpty() ? "" : ", " + slotExpr(recipe, type, key);
                     case "param" -> recipe.param(type, key);
                     case "param_str" -> JsUtil.quote(recipe.param(type, key));
                     default -> matcher.group();
@@ -76,6 +91,12 @@ public class TemplateRecipeCodegen implements RecipeCodegen {
             ShapedRecipeCodegen.appendCommonSuffix(js, recipe);
         }
         return js.toString();
+    }
+
+    /** Ingredient expression for input/catalyst slots, result expression for output slots. */
+    private static String slotExpr(RecipeInstance recipe, RecipeTypeDefinition type, String key) {
+        boolean isOutput = type.slot(key).map(s -> s.role() == SlotRole.OUTPUT).orElse(false);
+        return isOutput ? JsUtil.output(recipe.slot(key)) : JsUtil.ingredient(recipe.slot(key));
     }
 
     private static String joinSlots(RecipeInstance recipe, RecipeTypeDefinition type, SlotRole role) {

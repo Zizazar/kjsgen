@@ -54,7 +54,10 @@ public final class BuiltinRecipeTypes {
     }
 
     private static RecipeTypeDefinition shapeless() {
-        List<SlotDefinition> slots = craftingGrid(true);
+        // A dynamic ingredient list ("in0", "in1", ...) instead of a fixed 3x3 grid:
+        // one slot plus a '+' button, entries wrap into rows and auto-compact.
+        List<SlotDefinition> slots = new ArrayList<>();
+        slots.add(SlotDefinition.inputList("in", 0, 0, false, true));
         slots.add(new SlotDefinition("output", SlotRole.OUTPUT, 94, 18, true, true, false, false, true, false));
         return new RecipeTypeDefinition("kjsgen:shapeless", "minecraft", "minecraft:crafting_table",
                 116, 54, List.copyOf(slots),

@@ -185,6 +185,11 @@ dependencies {
 
     // Mekanism: real recipe types for the bundled mekanism_* layouts.
     localRuntime("mekanism:Mekanism:${mekanism_version}")
+    // Mekanism API only, for compile-time access to the chemical registry (gas slots).
+    // Runtime presence is optional: see integration/mekanism/MekanismChemicals.
+    compileOnly("mekanism:Mekanism:${mekanism_version}:api")
+    // KubeJS Mekanism addon: provides event.recipes.mekanism.* used by the bundled templates.
+    localRuntime("dev.latvian.mods:kubejs-mekanism-neoforge:${kubejs_mekanism_version}")
 
     // Create (+ its runtime deps). The slim jar excludes bundled libraries, so Ponder,
     // Flywheel and Registrate are declared explicitly (see the Create wiki).

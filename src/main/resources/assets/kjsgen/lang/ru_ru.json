@@ -2,6 +2,7 @@
   "kjsgen.title": "KubeJS Генератор",
   "key.categories.kjsgen": "KubeJS Генератор",
   "key.kjsgen.open_editor": "Открыть редактор рецептов",
+  "key.kjsgen.open_editor_vanilla": "Открыть редактор рецептов (Vanilla UI)",
 
   "kjsgen.error.no_permission": "Редактор рецептов kjsgen доступен только в одиночной игре или операторам сервера.",
   "kjsgen.error.save_failed": "Не удалось сохранить проект: %s",
@@ -28,6 +29,7 @@
   "kjsgen.ui.target_file": "Файл экспорта",
   "kjsgen.ui.if_mod_loaded": "Если мод загружен",
   "kjsgen.ui.slot_hint": "ЛКМ — изменить, ПКМ — очистить",
+  "kjsgen.ui.list_add": "Добавить ещё ингредиент",
   "kjsgen.ui.edit_slot": "Слот: %s",
   "kjsgen.ui.kind": "Содержимое",
   "kjsgen.ui.search": "Поиск",
@@ -90,6 +92,11 @@
   "kjsgen.param.xp": "Опыт",
   "kjsgen.param.cookingTime": "Время готовки",
   "kjsgen.param.processingTime": "Время обработки",
+  "kjsgen.param.infusion": "Тип инфузии",
+  "kjsgen.param.infusionAmount": "Количество инфузии",
+  "kjsgen.param.perTickUsage": "Расход за тик",
+  "kjsgen.param.secondaryChance": "Шанс доп. выхода",
+  "kjsgen.param.energy": "Энергия (Дж)",
 
   "kjsgen.recipe_type.kjsgen.shaped": "Крафт (с формой)",
   "kjsgen.recipe_type.kjsgen.shapeless": "Крафт (без формы)",
@@ -105,5 +112,12 @@
   "kjsgen.recipe_type.kjsgen.create_crushing": "Create: Дробление",
   "kjsgen.recipe_type.kjsgen.create_mixing": "Create: Смешивание",
   "kjsgen.recipe_type.kjsgen.mekanism_enriching": "Mekanism: Обогащение",
-  "kjsgen.recipe_type.kjsgen.mekanism_crushing": "Mekanism: Дробление"
+  "kjsgen.recipe_type.kjsgen.mekanism_crushing": "Mekanism: Дробление",
+  "kjsgen.recipe_type.kjsgen.mekanism_smelting": "Mekanism: Плавка",
+  "kjsgen.recipe_type.kjsgen.mekanism_combining": "Mekanism: Комбинирование",
+  "kjsgen.recipe_type.kjsgen.mekanism_sawing": "Mekanism: Распиловка",
+  "kjsgen.recipe_type.kjsgen.mekanism_metallurgic_infusing": "Mekanism: Металлургическая инфузия",
+  "kjsgen.recipe_type.kjsgen.mekanism_energy_conversion": "Mekanism: Преобразование энергии",
+  "kjsgen.recipe_type.kjsgen.mekanism_oxidizing": "Mekanism: Окисление",
+  "kjsgen.recipe_type.kjsgen.mekanism_crystallizing": "Mekanism: Кристаллизация"
 }

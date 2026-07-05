@@ -100,6 +100,42 @@ public final class RecipeInstance {
         return slots;
     }
 
+    /**
+     * Ordered, gap-free contents of a list slot. Entries live under the keys
+     * {@code baseKey + index} ("in0", "in1", ...) and are always contiguous
+     * because {@link #setListSlot} compacts them on every edit.
+     */
+    public java.util.List<SlotContent> listSlots(String baseKey) {
+        java.util.List<SlotContent> out = new java.util.ArrayList<>();
+        for (int i = 0; slots.containsKey(baseKey + i); i++) {
+            out.add(slots.get(baseKey + i));
+        }
+        return out;
+    }
+
+    /**
+     * Set (or append, when {@code index} is at/after the end) one entry of a list
+     * slot. Empty content removes the entry; remaining entries are re-indexed so
+     * the keys stay contiguous. An empty slot is thus dropped automatically — the
+     * editor simply renders one placeholder slot when the list is empty.
+     */
+    public void setListSlot(String baseKey, int index, SlotContent content) {
+        java.util.List<SlotContent> entries = listSlots(baseKey);
+        if (index >= 0 && index < entries.size()) {
+            entries.set(index, content);
+        } else if (content != null && !content.isEmpty()) {
+            entries.add(content);
+        }
+        entries.removeIf(c -> c == null || c.isEmpty());
+        // wipe the old contiguous keys, then rewrite the compacted list
+        for (int i = 0; slots.remove(baseKey + i) != null; i++) {
+            // remove until the first missing key (keys are contiguous)
+        }
+        for (int i = 0; i < entries.size(); i++) {
+            slots.put(baseKey + i, entries.get(i));
+        }
+    }
+
     /** Parameter value or the definition default when unset. */
     public String param(RecipeTypeDefinition type, String key) {
         String value = parameters.get(key);

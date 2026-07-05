@@ -52,6 +52,20 @@ public record RecipeTypeDefinition(
         return parameters.stream().filter(p -> p.key().equals(key)).findFirst();
     }
 
+    /**
+     * Whether the mod this type's syntax depends on is currently loaded, so the
+     * type picker can hide entries whose generated script would fail to load
+     * (e.g. the {@code mekanism_*} templates when Mekanism isn't installed).
+     * "minecraft" and "morejs" are pseudo-values that don't gate visibility,
+     * matching {@code ScriptAssembler}'s export-time condition logic.
+     */
+    public boolean isAvailable() {
+        if (requiresMod.isEmpty() || requiresMod.equals("minecraft") || requiresMod.equals("morejs")) {
+            return true;
+        }
+        return net.neoforged.fml.ModList.get().isLoaded(requiresMod);
+    }
+
     public JsonObject toJson() {
         JsonObject json = new JsonObject();
         json.addProperty("id", id);

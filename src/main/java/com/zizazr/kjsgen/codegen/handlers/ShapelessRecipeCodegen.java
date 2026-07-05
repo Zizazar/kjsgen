@@ -16,8 +16,7 @@ public class ShapelessRecipeCodegen implements RecipeCodegen {
     @Override
     public String generate(RecipeInstance recipe, RecipeTypeDefinition type) {
         List<String> ingredients = new ArrayList<>();
-        for (int i = 0; i < 9; i++) {
-            SlotContent content = recipe.slot("in" + i);
+        for (SlotContent content : recipe.listSlots("in")) {
             if (!content.isEmpty()) {
                 // shapeless inputs may carry a count: repeat the ingredient
                 for (int n = 0; n < Math.max(1, content.count()); n++) {

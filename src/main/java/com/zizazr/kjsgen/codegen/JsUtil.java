@@ -39,6 +39,9 @@ public final class JsUtil {
             case ITEM_TAG -> quote("#" + content.id());
             case FLUID -> "Fluid.of(" + quote(content.id()) + ", " + content.amount() + ")";
             case FLUID_TAG -> "{ fluidTag: " + quote("#" + content.id()) + ", amount: " + content.amount() + " }";
+            // kubejs-mekanism ChemicalStackIngredient string form: "AMOUNTx (id|#tag)"
+            case CHEMICAL -> quote(content.amount() + "x " + content.id());
+            case CHEMICAL_TAG -> quote(content.amount() + "x #" + content.id());
         };
     }
 
@@ -60,6 +63,9 @@ public final class JsUtil {
             case ITEM_TAG -> quote("#" + content.id()); // tags are not valid outputs; validator rejects this
             case FLUID -> "Fluid.of(" + quote(content.id()) + ", " + content.amount() + ")";
             case FLUID_TAG -> "{ fluidTag: " + quote("#" + content.id()) + ", amount: " + content.amount() + " }";
+            // kubejs-mekanism ChemicalStack string form: "AMOUNTx id"
+            case CHEMICAL -> quote(content.amount() + "x " + content.id());
+            case CHEMICAL_TAG -> quote(content.amount() + "x #" + content.id()); // tags are not valid outputs; validator rejects this
         };
         if (content.chance() < 1.0f && content.kind() == com.zizazr.kjsgen.core.ContentKind.ITEM) {
             if (!base.startsWith("Item.of(")) {

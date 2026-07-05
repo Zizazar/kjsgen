@@ -113,6 +113,24 @@ GUI Crafts generator for kubejs
     ordering="AFTER"
     side="BOTH"
 
+# Mekanism - optional; the bundled mekanism_* recipe types are hidden from the
+# editor's type picker unless this mod is loaded.
+[[dependencies.${mod_id}]]
+    modId="mekanism"
+    type="optional"
+    versionRange="[10.7,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# KubeJS Mekanism - optional; provides event.recipes.mekanism.* at runtime for the
+# scripts kjsgen exports from the bundled mekanism_* recipe types.
+[[dependencies.${mod_id}]]
+    modId="kubejs_mekanism"
+    type="optional"
+    versionRange="[2101.1.6,)"
+    ordering="AFTER"
+    side="BOTH"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.

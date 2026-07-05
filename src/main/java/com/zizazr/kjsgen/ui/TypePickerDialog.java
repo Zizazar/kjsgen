@@ -55,6 +55,9 @@ public final class TypePickerDialog {
             String query = searchField.getValue() == null ? "" : searchField.getValue().toLowerCase().trim();
             grid.viewContainer(UIElement::clearAllChildren);
             for (RecipeTypeDefinition type : RecipeTypeRegistry.all()) {
+                if (!type.isAvailable()) {
+                    continue;
+                }
                 String name = UiTexts.typeName(type).getString();
                 if (!query.isEmpty()
                         && !name.toLowerCase().contains(query)

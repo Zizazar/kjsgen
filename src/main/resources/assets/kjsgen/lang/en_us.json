@@ -2,6 +2,7 @@
   "kjsgen.title": "KubeJS Generator",
   "key.categories.kjsgen": "KubeJS Generator",
   "key.kjsgen.open_editor": "Open Recipe Editor",
+  "key.kjsgen.open_editor_vanilla": "Open Recipe Editor (Vanilla UI)",
 
   "kjsgen.error.no_permission": "The kjsgen recipe editor is only available in singleplayer or to server operators.",
   "kjsgen.error.save_failed": "Failed to save project: %s",
@@ -28,6 +29,7 @@
   "kjsgen.ui.target_file": "Target file",
   "kjsgen.ui.if_mod_loaded": "If mod loaded",
   "kjsgen.ui.slot_hint": "Click to edit, right-click to clear",
+  "kjsgen.ui.list_add": "Add another ingredient",
   "kjsgen.ui.edit_slot": "Edit slot: %s",
   "kjsgen.ui.kind": "Content",
   "kjsgen.ui.search": "Search",
@@ -90,6 +92,11 @@
   "kjsgen.param.xp": "Experience",
   "kjsgen.param.cookingTime": "Cooking time",
   "kjsgen.param.processingTime": "Processing time",
+  "kjsgen.param.infusion": "Infusion type",
+  "kjsgen.param.infusionAmount": "Infusion amount",
+  "kjsgen.param.perTickUsage": "Per-tick usage",
+  "kjsgen.param.secondaryChance": "Secondary chance",
+  "kjsgen.param.energy": "Energy (J)",
 
   "kjsgen.recipe_type.kjsgen.shaped": "Crafting (Shaped)",
   "kjsgen.recipe_type.kjsgen.shapeless": "Crafting (Shapeless)",
@@ -105,5 +112,12 @@
   "kjsgen.recipe_type.kjsgen.create_crushing": "Create: Crushing",
   "kjsgen.recipe_type.kjsgen.create_mixing": "Create: Mixing",
   "kjsgen.recipe_type.kjsgen.mekanism_enriching": "Mekanism: Enriching",
-  "kjsgen.recipe_type.kjsgen.mekanism_crushing": "Mekanism: Crushing"
+  "kjsgen.recipe_type.kjsgen.mekanism_crushing": "Mekanism: Crushing",
+  "kjsgen.recipe_type.kjsgen.mekanism_smelting": "Mekanism: Smelting",
+  "kjsgen.recipe_type.kjsgen.mekanism_combining": "Mekanism: Combining",
+  "kjsgen.recipe_type.kjsgen.mekanism_sawing": "Mekanism: Sawing",
+  "kjsgen.recipe_type.kjsgen.mekanism_metallurgic_infusing": "Mekanism: Metallurgic Infusing",
+  "kjsgen.recipe_type.kjsgen.mekanism_energy_conversion": "Mekanism: Energy Conversion",
+  "kjsgen.recipe_type.kjsgen.mekanism_oxidizing": "Mekanism: Oxidizing",
+  "kjsgen.recipe_type.kjsgen.mekanism_crystallizing": "Mekanism: Crystallizing"
 }
