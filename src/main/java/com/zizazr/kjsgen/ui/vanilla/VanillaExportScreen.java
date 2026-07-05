@@ -30,11 +30,11 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
 
     @Override
     protected void init() {
-        centerDialog(260, 210);
+        centerDialog(260, 228);
         int x = dialogX + 10;
         int w = dialogW - 20;
 
-        int fieldY = dialogY + dialogH - 74;
+        int fieldY = dialogY + dialogH - 92;
         EditBox fileField = new EditBox(this.font, x + 70, fieldY, w - 70, 16,
                 Component.translatable("kjsgen.ui.default_file"));
         fileField.setValue(project.defaultTargetFile());
@@ -45,6 +45,11 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
                 .create(x, fieldY + 20, w, 16, Component.translatable("kjsgen.ui.export_comments"),
                         (btn, v) -> project.setExportComments(v));
         addRenderableWidget(comments);
+
+        CycleButton<Boolean> reloadOnExport = CycleButton.onOffBuilder(project.reloadOnExport())
+                .create(x, fieldY + 38, w, 16, Component.translatable("kjsgen.ui.reload_on_export"),
+                        (btn, v) -> project.setReloadOnExport(v));
+        addRenderableWidget(reloadOnExport);
 
         int by = dialogY + dialogH - 24;
         int bw = (w - 8) / 3;
@@ -68,6 +73,9 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
                 info.append(" ").append(file.fileName()).append(".js(").append(file.recipeCount()).append(")");
             }
             message(info.toString());
+            if (project.reloadOnExport()) {
+                VanillaEditorScreen.sendReloadCommand();
+            }
         } catch (IOException ex) {
             KjsGen.LOGGER.error("kjsgen export failed", ex);
             message(Component.translatable("kjsgen.error.export_failed").getString() + ": " + ex.getMessage());
@@ -97,14 +105,14 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
                         + ".js  —  " + e.getValue().size();
                 g.drawString(this.font, this.font.plainSubstrByWidth(line, w), x, y, VanillaTheme.TEXT, true);
                 y += 11;
-                if (y > dialogY + dialogH - 90) {
+                if (y > dialogY + dialogH - 108) {
                     break;
                 }
             }
         }
 
         // warnings
-        int wy = dialogY + dialogH - 92;
+        int wy = dialogY + dialogH - 110;
         if (!KjsGen.isKubeJsLoaded()) {
             g.drawString(this.font, this.font.plainSubstrByWidth(
                             Component.translatable("kjsgen.export.warn_no_kubejs").getString(), w),
@@ -122,6 +130,6 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
 
         // labels for the option widgets
         g.drawString(this.font, Component.translatable("kjsgen.ui.default_file"),
-                x, dialogY + dialogH - 70, VanillaTheme.TEXT_DIM, true);
+                x, dialogY + dialogH - 88, VanillaTheme.TEXT_DIM, true);
     }
 }

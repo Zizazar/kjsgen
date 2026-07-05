@@ -14,6 +14,8 @@
   "kjsgen.ui.new_project": "Новый проект",
   "kjsgen.ui.project_name": "Имя проекта",
   "kjsgen.ui.export": "Экспорт",
+  "kjsgen.ui.reload": "Перезагрузка",
+  "kjsgen.ui.reload_on_export": "Перезагрузка после экспорта",
   "kjsgen.ui.recipes": "Рецепты",
   "kjsgen.ui.add_recipe": "+ Добавить рецепт",
   "kjsgen.ui.no_recipe": "Рецепт не выбран",

@@ -12,6 +12,7 @@ import com.zizazr.kjsgen.core.RecipeValidator;
 import com.zizazr.kjsgen.core.SlotContent;
 import com.zizazr.kjsgen.core.SlotDefinition;
 import com.zizazr.kjsgen.integration.kubejs.ScriptAssembler;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -91,6 +92,8 @@ public class VanillaEditorScreen extends Screen {
         int hh = 16;
         int rightEdge = panelX + panelW - 8;
 
+        Button reload = Button.builder(Component.translatable("kjsgen.ui.reload"), b -> sendReloadCommand())
+                .bounds(0, hy, btnWidth("kjsgen.ui.reload"), hh).build();
         Button export = Button.builder(Component.translatable("kjsgen.ui.export"), b -> openExport())
                 .bounds(0, hy, btnWidth("kjsgen.ui.export"), hh).build();
         Button projects = Button.builder(Component.translatable("kjsgen.ui.projects"), b -> openProjects())
@@ -98,7 +101,8 @@ public class VanillaEditorScreen extends Screen {
         Button save = Button.builder(Component.translatable("kjsgen.ui.save"), b -> saveProject(true))
                 .bounds(0, hy, btnWidth("kjsgen.ui.save"), hh).build();
 
-        export.setX(rightEdge - export.getWidth());
+        reload.setX(rightEdge - reload.getWidth());
+        export.setX(reload.getX() - 4 - export.getWidth());
         projects.setX(export.getX() - 4 - projects.getWidth());
         save.setX(projects.getX() - 4 - save.getWidth());
 
@@ -117,6 +121,7 @@ public class VanillaEditorScreen extends Screen {
         addRenderableWidget(save);
         addRenderableWidget(projects);
         addRenderableWidget(export);
+        addRenderableWidget(reload);
 
         // ----- left: add recipe button (pinned to the bottom of the list column)
         Button addRecipe = Button.builder(Component.translatable("kjsgen.ui.add_recipe"), b -> openTypePicker())
@@ -349,6 +354,14 @@ public class VanillaEditorScreen extends Screen {
     private void openExport() {
         if (this.minecraft != null) {
             this.minecraft.setScreen(new VanillaExportScreen(this));
+        }
+    }
+
+    /** Runs the vanilla "/reload" command through the client connection, if connected. */
+    static void sendReloadCommand() {
+        var connection = Minecraft.getInstance().getConnection();
+        if (connection != null) {
+            connection.sendCommand("reload");
         }
     }
 

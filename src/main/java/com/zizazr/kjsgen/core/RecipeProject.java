@@ -21,6 +21,8 @@ public final class RecipeProject {
     private String defaultTargetFile = "kjsgen_recipes";
     /** Emit a human readable comment above each generated recipe. */
     private boolean exportComments = true;
+    /** Run the vanilla "/reload" command right after a successful export. */
+    private boolean reloadOnExport = false;
     private final List<RecipeInstance> recipes = new ArrayList<>();
 
     public RecipeProject(String name) {
@@ -51,6 +53,14 @@ public final class RecipeProject {
 
     public void setExportComments(boolean exportComments) {
         this.exportComments = exportComments;
+    }
+
+    public boolean reloadOnExport() {
+        return reloadOnExport;
+    }
+
+    public void setReloadOnExport(boolean reloadOnExport) {
+        this.reloadOnExport = reloadOnExport;
     }
 
     public List<RecipeInstance> recipes() {
@@ -89,6 +99,7 @@ public final class RecipeProject {
         json.addProperty("name", name);
         json.addProperty("defaultTargetFile", defaultTargetFile);
         json.addProperty("exportComments", exportComments);
+        json.addProperty("reloadOnExport", reloadOnExport);
         JsonArray arr = new JsonArray();
         recipes.forEach(r -> arr.add(r.toJson()));
         json.add("recipes", arr);
@@ -99,6 +110,7 @@ public final class RecipeProject {
         RecipeProject project = new RecipeProject(json.has("name") ? json.get("name").getAsString() : "unnamed");
         if (json.has("defaultTargetFile")) project.setDefaultTargetFile(json.get("defaultTargetFile").getAsString());
         if (json.has("exportComments")) project.exportComments = json.get("exportComments").getAsBoolean();
+        if (json.has("reloadOnExport")) project.reloadOnExport = json.get("reloadOnExport").getAsBoolean();
         if (json.has("recipes")) {
             json.getAsJsonArray("recipes").forEach(e -> project.recipes.add(RecipeInstance.fromJson(e.getAsJsonObject())));
         }
