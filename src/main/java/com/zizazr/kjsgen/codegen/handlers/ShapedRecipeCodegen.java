@@ -8,6 +8,7 @@ import com.zizazr.kjsgen.core.SlotContent;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * {@code event.shaped('3x minecraft:paper', ['AB ', ' C '], { A: '#minecraft:planks', ... })}
@@ -73,6 +74,11 @@ public class ShapedRecipeCodegen implements RecipeCodegen {
         js.append("})");
         appendCommonSuffix(js, recipe);
         return js.toString();
+    }
+
+    @Override
+    public Optional<String> removeTypeId(RecipeInstance recipe, RecipeTypeDefinition type) {
+        return Optional.of("crafting_shaped");
     }
 
     static void appendCommonSuffix(StringBuilder js, RecipeInstance recipe) {

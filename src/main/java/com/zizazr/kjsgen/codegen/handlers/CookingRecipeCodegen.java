@@ -5,6 +5,8 @@ import com.zizazr.kjsgen.codegen.RecipeCodegen;
 import com.zizazr.kjsgen.core.RecipeInstance;
 import com.zizazr.kjsgen.core.RecipeTypeDefinition;
 
+import java.util.Optional;
+
 /**
  * Shared handler for the four vanilla cooking recipe families:
  * {@code event.smelting(output, input).xp(0.7).cookingTime(100)}
@@ -13,10 +15,14 @@ import com.zizazr.kjsgen.core.RecipeTypeDefinition;
 public class CookingRecipeCodegen implements RecipeCodegen {
     private final String method;
     private final int defaultTime;
+    private final String removeType;
 
     public CookingRecipeCodegen(String method, int defaultTime) {
         this.method = method;
         this.defaultTime = defaultTime;
+        // vanilla cooking methods are already camelCase forms of their snake_case serializer id
+        // ("campfireCooking" -> "campfire_cooking"), except the three that match verbatim.
+        this.removeType = method.equals("campfireCooking") ? "campfire_cooking" : method;
     }
 
     @Override
@@ -35,5 +41,10 @@ public class CookingRecipeCodegen implements RecipeCodegen {
         }
         ShapedRecipeCodegen.appendCommonSuffix(js, recipe);
         return js.toString();
+    }
+
+    @Override
+    public Optional<String> removeTypeId(RecipeInstance recipe, RecipeTypeDefinition type) {
+        return Optional.of(removeType);
     }
 }

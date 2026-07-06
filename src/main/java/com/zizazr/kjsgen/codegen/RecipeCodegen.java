@@ -3,6 +3,8 @@ package com.zizazr.kjsgen.codegen;
 import com.zizazr.kjsgen.core.RecipeInstance;
 import com.zizazr.kjsgen.core.RecipeTypeDefinition;
 
+import java.util.Optional;
+
 /**
  * Turns one {@link RecipeInstance} into a KubeJS statement. One handler per
  * recipe type family; addon mods register theirs through the addon API.
@@ -27,5 +29,16 @@ public interface RecipeCodegen {
 
     default String wrapperFooter() {
         return "})";
+    }
+
+    /**
+     * The bare KubeJS recipe serializer type (no namespace, e.g. {@code "campfire_cooking"},
+     * {@code "crafting_shaped"}, {@code "pressing"}), used to build the {@code event.remove(...)}
+     * line emitted before this recipe when {@link RecipeInstance#replaceRecipe()} is set.
+     * Empty when this handler's recipes can't be safely targeted by {@code event.remove}
+     * (e.g. brewing, which isn't a datapack recipe).
+     */
+    default Optional<String> removeTypeId(RecipeInstance recipe, RecipeTypeDefinition type) {
+        return Optional.empty();
     }
 }

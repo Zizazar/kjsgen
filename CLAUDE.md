@@ -3,25 +3,21 @@
 KubeJS Generator: a NeoForge 1.21.1 (Java 21) dev-tool mod. A JEI-like visual
 recipe editor that exports KubeJS scripts (`kubejs/server_scripts/*.js`).
 
-## Active UI: vanilla (no LDLib2)
+## UI: vanilla Screens
 
-**We are now working in the vanilla UI, package `ui/vanilla/`.** This is the
-interface to modify by default when the user asks for editor/UI changes,
-unless they explicitly say otherwise.
+**The editor lives in package `ui/vanilla/`** and is built entirely on stock
+Minecraft — no third-party UI library. This is the interface to modify when the
+user asks for editor/UI changes.
 
 - Entry point: [VanillaEditorScreen](src/main/java/com/zizazr/kjsgen/ui/vanilla/VanillaEditorScreen.java)
-  — a plain `net.minecraft.client.gui.screens.Screen`, opened with keybind **J**
-  (`key.kjsgen.open_editor_vanilla`) via `KjsGenClient.openEditorVanilla()`.
+  — a plain `net.minecraft.client.gui.screens.Screen`, opened with keybind **K**
+  (`key.kjsgen.open_editor`) via `KjsGenClient.openEditor()`.
 - Dialogs extend [VanillaDialogScreen](src/main/java/com/zizazr/kjsgen/ui/vanilla/VanillaDialogScreen.java)
   (renders `renderBackground` as backdrop, NOT the parent screen — see gotcha below).
 - Screens: `VanillaSlotEditScreen`, `VanillaTypePickerScreen`, `VanillaProjectsScreen`,
   `VanillaExportScreen`, `VanillaCodePreviewScreen`.
-- `VanillaTheme` holds the colour palette + item/fluid icon helpers. No LDLib2 imports anywhere
-  in this package — everything is `GuiGraphics` + stock Minecraft widgets (`EditBox`, `Button`,
-  `CycleButton`).
-- The **old LDLib2 editor still exists** in `ui/` (entry: `KjsGenUI`, opened with keybind **K**,
-  `KjsGenClient.openEditor()`). Do not delete it unless explicitly asked — it has the live JEI
-  render + visual layout editor that the vanilla UI does not (yet) have.
+- `VanillaTheme` holds the colour palette + item/fluid icon helpers — everything is
+  `GuiGraphics` + stock Minecraft widgets (`EditBox`, `Button`, `CycleButton`).
 
 ### Rendering gotchas (found via in-game testing, don't reintroduce)
 
@@ -56,9 +52,8 @@ core/                 — data model (SlotContent, RecipeInstance, RecipeProject
 templates/            — built-in recipe types + JSON layout loader (kjsgen_layouts)
 codegen/              — RecipeCodegen + per-type KubeJS code generators
 integration/kubejs/   — script assembly + marker-block export
-integration/jei/      — JEI layout import + live JEI canvas render (LDLib2 UI only)
-ui/                   — LDLib2 editor screens (legacy, keybind K)
-ui/vanilla/           — vanilla Screen editor (active, keybind J)
+integration/jei/      — JEI layout import + "edit in kjsgen" recipe button
+ui/vanilla/           — vanilla Screen editor (keybind K)
 api/                  — RegisterRecipeTypesEvent for addon mods
 ```
 
@@ -76,26 +71,26 @@ requirements because guessing wrong here has repeatedly cost real rework on this
 them as blocking, not optional:
 
 - **MUST use docs-search-agent** before writing or editing any code that calls into NeoForge,
-  Minecraft, LDLib2, JEI, or KubeJS/MoreJS APIs you have not already verified earlier in this
+  Minecraft, JEI, or KubeJS/MoreJS APIs you have not already verified earlier in this
   same session. Do not pattern-match from memory or from similar-looking code elsewhere in the
-  repo — this project has shipped wrong LDLib2/JEI signatures from guessing before. Also usable
+  repo — this project has shipped wrong JEI signatures from guessing before. Also usable
   for KubeJS wiki lookups.
 - **MUST use log-analyzer** instead of pasting raw output into the conversation whenever
   `./gradlew build`/`runClient` fails or a Minecraft crash log needs diagnosing.
 
 The rest are judgment calls — reach for them when the task genuinely matches, not by default:
 
-- **Explore** — broad, unfamiliar-territory sweeps across the repo, e.g. "where does JEI slot
-  rendering interact with `LayoutEditorDialog`" or "find every codegen handler that calls
+- **Explore** — broad, unfamiliar-territory sweeps across the repo, e.g. "where does the JEI
+  import map categories to layouts" or "find every codegen handler that calls
   `wrapperHeader()`". Use when the answer requires scanning across `core/`, `codegen/`,
-  `integration/`, `ui/` and `ui/vanilla/` and you only need the conclusion.
+  `integration/` and `ui/vanilla/` and you only need the conclusion.
 - **search-agent** — a quick, narrow lookup when you already roughly know where to look (a known
   symbol, a specific string, "which file defines `SlotRole`"). Lighter than Explore.
 - **search-specialist** — web research for third-party mod recipe DSLs not vendored locally
   (Create, Mekanism, MoreJS syntax) when an addon-api integration needs more than a best-guess
   template.
-- **planning-agent** — get a spec before implementing a non-trivial feature (e.g. porting the
-  live JEI render/layout editor to the vanilla UI, adding a new addon recipe-type family), then
+- **planning-agent** — get a spec before implementing a non-trivial feature (e.g. a live JEI
+  render/layout editor in the vanilla UI, adding a new addon recipe-type family), then
   implement it yourself.
 - **general-purpose** — multi-step tasks spanning several files/edits where the scope isn't yet
   clear from a single targeted search.

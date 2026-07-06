@@ -1,14 +1,11 @@
 package com.zizazr.kjsgen;
 
-import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.zizazr.kjsgen.core.ProjectManager;
 import com.zizazr.kjsgen.core.RecipeInstance;
 import com.zizazr.kjsgen.core.RecipeProject;
 import com.zizazr.kjsgen.templates.JsonLayoutLoader;
 import com.zizazr.kjsgen.templates.UserLayoutStore;
-import com.zizazr.kjsgen.ui.KjsGenUI;
 import com.zizazr.kjsgen.ui.vanilla.VanillaEditorScreen;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -41,15 +38,6 @@ public class KjsGenClient {
             "key.categories.kjsgen"
     ));
 
-    /** Opens the experimental LDLib2-free (pure vanilla Screen) editor for look comparison. */
-    public static final Lazy<KeyMapping> OPEN_EDITOR_VANILLA = Lazy.of(() -> new KeyMapping(
-            "key.kjsgen.open_editor_vanilla",
-            KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_J,
-            "key.categories.kjsgen"
-    ));
-
     public KjsGenClient(ModContainer container) {
         NeoForge.EVENT_BUS.addListener(KjsGenClient::onClientTick);
     }
@@ -57,7 +45,6 @@ public class KjsGenClient {
     @SubscribeEvent
     static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(OPEN_EDITOR.get());
-        event.register(OPEN_EDITOR_VANILLA.get());
     }
 
     @SubscribeEvent
@@ -70,9 +57,6 @@ public class KjsGenClient {
     static void onClientTick(ClientTickEvent.Post event) {
         while (OPEN_EDITOR.get().consumeClick()) {
             openEditor();
-        }
-        while (OPEN_EDITOR_VANILLA.get().consumeClick()) {
-            openEditorVanilla();
         }
     }
 
@@ -94,24 +78,12 @@ public class KjsGenClient {
         if (!mayEdit(mc)) {
             return;
         }
-        KjsGenUI workspace = new KjsGenUI();
-        ModularUI modularUI = new ModularUI(workspace.buildUI())
-                .shouldCloseOnKeyInventory(false);
-        mc.setScreen(new ModularUIScreen(modularUI, Component.translatable("kjsgen.title")));
-    }
-
-    /** Opens the pure-vanilla (LDLib2-free) editor screen. */
-    public static void openEditorVanilla() {
-        Minecraft mc = Minecraft.getInstance();
-        if (!mayEdit(mc)) {
-            return;
-        }
         mc.setScreen(new VanillaEditorScreen());
     }
 
     /**
      * Adds (or replaces the same type+output entry of) {@code recipe} in the current
-     * project and opens the vanilla editor with it selected. Called from the JEI
+     * project and opens the editor with it selected. Called from the JEI
      * "edit in kjsgen" recipe button.
      */
     public static void openEditorWithCapturedRecipe(RecipeInstance recipe) {

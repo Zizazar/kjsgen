@@ -88,14 +88,6 @@ GUI Crafts generator for kubejs
     ordering="NONE"
     side="BOTH"
 
-# LDLib2 - base UI library, required
-[[dependencies.${mod_id}]]
-    modId="ldlib2"
-    type="required"
-    versionRange="[2.2,)"
-    ordering="AFTER"
-    side="BOTH"
-
 # KubeJS - optional at runtime; only needed to actually load the exported scripts.
 # The mod warns in the export UI when KubeJS is not installed.
 [[dependencies.${mod_id}]]

@@ -29,11 +29,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * A pure-vanilla ({@link Screen}-based) implementation of the kjsgen recipe
- * editor, built without LDLib2. It shares the same data model as the LDLib2
- * editor ({@link com.zizazr.kjsgen.ui.KjsGenUI}) but renders everything with
- * {@link GuiGraphics} and stock Minecraft widgets, so we can compare the two
- * looks side by side.
+ * The kjsgen recipe editor: a {@link Screen}-based UI that renders everything
+ * with {@link GuiGraphics} and stock Minecraft widgets.
  *
  * <p>Layout: a header bar (title + project name + Save/Projects/Export), then
  * three columns — recipe list, JEI-style canvas, and parameters + code preview.
@@ -209,6 +206,13 @@ public class VanillaEditorScreen extends Screen {
                 recipe::setTargetFile);
         addTextParam("kjsgen.ui.if_mod_loaded", recipe.conditionModLoaded(), "", ctrlW, null,
                 recipe::setConditionModLoaded);
+        CycleButton<Boolean> replaceToggle = CycleButton.onOffBuilder(recipe.replaceRecipe())
+                .create(0, 0, ctrlW, 14, Component.translatable("kjsgen.ui.replace_recipe"),
+                        (btn, v) -> {
+                            recipe.setReplaceRecipe(v);
+                            markDirty();
+                        });
+        addParam(Component.translatable("kjsgen.ui.replace_recipe"), replaceToggle);
 
         for (ParameterDefinition param : type.parameters()) {
             if (param.key().startsWith("__")) {

@@ -24,6 +24,8 @@ public final class RecipeInstance {
     private String targetFile = "";
     /** Optional mod id: recipe gets wrapped in Platform.isLoaded(...) on export. */
     private String conditionModLoaded = "";
+    /** Emit an event.remove(...) line before the recipe on export, so re-export replaces it instead of duplicating. */
+    private boolean replaceRecipe = true;
     private final Map<String, SlotContent> slots = new LinkedHashMap<>();
     private final Map<String, String> parameters = new LinkedHashMap<>();
 
@@ -82,6 +84,14 @@ public final class RecipeInstance {
 
     public void setConditionModLoaded(String modId) {
         this.conditionModLoaded = modId == null ? "" : modId.trim();
+    }
+
+    public boolean replaceRecipe() {
+        return replaceRecipe;
+    }
+
+    public void setReplaceRecipe(boolean replaceRecipe) {
+        this.replaceRecipe = replaceRecipe;
     }
 
     public SlotContent slot(String key) {
@@ -192,6 +202,7 @@ public final class RecipeInstance {
         copy.comment = comment;
         copy.targetFile = targetFile;
         copy.conditionModLoaded = conditionModLoaded;
+        copy.replaceRecipe = replaceRecipe;
         copy.slots.putAll(slots);
         copy.parameters.putAll(parameters);
         return copy;
@@ -217,6 +228,7 @@ public final class RecipeInstance {
         if (!comment.isEmpty()) json.addProperty("comment", comment);
         if (!targetFile.isEmpty()) json.addProperty("targetFile", targetFile);
         if (!conditionModLoaded.isEmpty()) json.addProperty("ifModLoaded", conditionModLoaded);
+        if (!replaceRecipe) json.addProperty("replaceRecipe", false);
         JsonObject slotJson = new JsonObject();
         slots.forEach((key, content) -> slotJson.add(key, content.toJson()));
         json.add("slots", slotJson);
@@ -234,6 +246,7 @@ public final class RecipeInstance {
         if (json.has("comment")) recipe.comment = json.get("comment").getAsString();
         if (json.has("targetFile")) recipe.targetFile = json.get("targetFile").getAsString();
         if (json.has("ifModLoaded")) recipe.conditionModLoaded = json.get("ifModLoaded").getAsString();
+        if (json.has("replaceRecipe")) recipe.replaceRecipe = json.get("replaceRecipe").getAsBoolean();
         if (json.has("slots")) {
             JsonObject slotJson = json.getAsJsonObject("slots");
             slotJson.entrySet().forEach(e ->

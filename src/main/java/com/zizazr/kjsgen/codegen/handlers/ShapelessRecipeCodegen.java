@@ -8,6 +8,7 @@ import com.zizazr.kjsgen.core.SlotContent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * {@code event.shapeless('minecraft:cake', ['minecraft:milk_bucket', '#minecraft:eggs'])}
@@ -29,5 +30,10 @@ public class ShapelessRecipeCodegen implements RecipeCodegen {
                 .append(", [").append(String.join(", ", ingredients)).append("])");
         ShapedRecipeCodegen.appendCommonSuffix(js, recipe);
         return js.toString();
+    }
+
+    @Override
+    public Optional<String> removeTypeId(RecipeInstance recipe, RecipeTypeDefinition type) {
+        return Optional.of("crafting_shapeless");
     }
 }

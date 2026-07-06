@@ -6,6 +6,7 @@ import com.zizazr.kjsgen.core.RecipeInstance;
 import com.zizazr.kjsgen.core.RecipeTypeDefinition;
 import com.zizazr.kjsgen.core.SlotRole;
 
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -50,6 +51,9 @@ import java.util.regex.Pattern;
  */
 public class TemplateRecipeCodegen implements RecipeCodegen {
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{(slot|opt_slot|param|param_str|opt_call):([A-Za-z0-9_.\\-]+)}|\\{opt_slot_chance:([A-Za-z0-9_.\\-]+):([A-Za-z0-9_.\\-]+)}|\\{flag_call:([A-Za-z0-9_.\\-]+):([A-Za-z0-9_.\\-]+)}|\\{id}|\\{group}|\\{inputs}|\\{outputs}");
+    /** Pulls the recipe type suffix out of an {@code event.recipes.MOD.TYPE(} template call — every
+     * bundled addon template names its JS method after the actual (already snake_case) recipe type. */
+    private static final Pattern TEMPLATE_METHOD = Pattern.compile("event\\.recipes\\.[A-Za-z0-9_]+\\.([A-Za-z0-9_]+)\\(");
 
     @Override
     public String generate(RecipeInstance recipe, RecipeTypeDefinition type) {
@@ -107,6 +111,16 @@ public class TemplateRecipeCodegen implements RecipeCodegen {
             ShapedRecipeCodegen.appendCommonSuffix(js, recipe);
         }
         return js.toString();
+    }
+
+    @Override
+    public Optional<String> removeTypeId(RecipeInstance recipe, RecipeTypeDefinition type) {
+        String template = recipe.param(type, "__template");
+        if (template.isEmpty()) {
+            template = recipe.param(type, "template");
+        }
+        Matcher matcher = TEMPLATE_METHOD.matcher(template);
+        return matcher.find() ? Optional.of(matcher.group(1)) : Optional.empty();
     }
 
     /** A parameter value counts as "on" unless empty / "false" / "none" / "0". */

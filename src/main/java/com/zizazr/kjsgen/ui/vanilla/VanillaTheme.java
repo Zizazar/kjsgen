@@ -19,9 +19,8 @@ import net.minecraft.world.level.material.Fluid;
 import java.util.List;
 
 /**
- * Colour palette and small drawing helpers for the vanilla (LDLib2-free) editor
- * screens. Everything here uses only {@link GuiGraphics} and Minecraft registry
- * APIs, so the whole {@code ui.vanilla} package has no dependency on LDLib2.
+ * Colour palette and small drawing helpers for the kjsgen editor screens.
+ * Everything here uses only {@link GuiGraphics} and Minecraft registry APIs.
  */
 final class VanillaTheme {
     private VanillaTheme() {

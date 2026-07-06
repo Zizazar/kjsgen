@@ -2,7 +2,6 @@
   "kjsgen.title": "KubeJS Генератор",
   "key.categories.kjsgen": "KubeJS Генератор",
   "key.kjsgen.open_editor": "Открыть редактор рецептов",
-  "key.kjsgen.open_editor_vanilla": "Открыть редактор рецептов (Vanilla UI)",
 
   "kjsgen.error.no_permission": "Редактор рецептов kjsgen доступен только в одиночной игре или операторам сервера.",
   "kjsgen.error.save_failed": "Не удалось сохранить проект: %s",
@@ -30,6 +29,7 @@
   "kjsgen.ui.comment": "Комментарий",
   "kjsgen.ui.target_file": "Файл экспорта",
   "kjsgen.ui.if_mod_loaded": "Если мод загружен",
+  "kjsgen.ui.replace_recipe": "Заменять рецепт",
   "kjsgen.ui.slot_hint": "ЛКМ — изменить, ПКМ — очистить",
   "kjsgen.ui.list_add": "Добавить ещё ингредиент",
   "kjsgen.ui.seq_stages": "Этапы",

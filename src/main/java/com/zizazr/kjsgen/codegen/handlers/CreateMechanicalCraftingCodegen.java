@@ -9,6 +9,7 @@ import com.zizazr.kjsgen.core.SlotContent;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Create mechanical crafting:
@@ -88,5 +89,10 @@ public class CreateMechanicalCraftingCodegen implements RecipeCodegen {
         js.append("})");
         ShapedRecipeCodegen.appendCommonSuffix(js, recipe);
         return js.toString();
+    }
+
+    @Override
+    public Optional<String> removeTypeId(RecipeInstance recipe, RecipeTypeDefinition type) {
+        return Optional.of("mechanical_crafting");
     }
 }

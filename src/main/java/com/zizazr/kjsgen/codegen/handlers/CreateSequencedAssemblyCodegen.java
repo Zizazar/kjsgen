@@ -7,6 +7,8 @@ import com.zizazr.kjsgen.core.RecipeInstance;
 import com.zizazr.kjsgen.core.RecipeTypeDefinition;
 import com.zizazr.kjsgen.core.SlotContent;
 
+import java.util.Optional;
+
 /**
  * Create sequenced assembly:
  * <pre>
@@ -71,5 +73,10 @@ public class CreateSequencedAssemblyCodegen implements RecipeCodegen {
         }
         ShapedRecipeCodegen.appendCommonSuffix(js, recipe);
         return js.toString();
+    }
+
+    @Override
+    public Optional<String> removeTypeId(RecipeInstance recipe, RecipeTypeDefinition type) {
+        return Optional.of("sequenced_assembly");
     }
 }

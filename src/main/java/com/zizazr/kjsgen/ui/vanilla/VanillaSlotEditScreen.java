@@ -70,7 +70,13 @@ public final class VanillaSlotEditScreen extends VanillaDialogScreen {
     private EditBox chanceField;
 
     // ---- search / picks state --------------------------------------------
+    /** All matching ids for the current query (cheap ids, not materialised entries). */
+    private final List<String> matchedIds = new ArrayList<>();
+    /** Materialised window of {@link #matchedIds}, the only entries actually rendered. */
     private final List<Entry> results = new ArrayList<>();
+    /** Index into {@link #matchedIds} that {@code results.get(0)} corresponds to. */
+    private int resultWindowStart;
+    private static final int WINDOW_SIZE = 300;
     private int resultScroll;
     private int favScroll;
 
@@ -319,69 +325,81 @@ public final class VanillaSlotEditScreen extends VanillaDialogScreen {
 
     private void runSearch(String word) {
         this.searchQuery = word;
-        results.clear();
+        matchedIds.clear();
         resultScroll = 0;
         String query = word.toLowerCase().trim();
-        int cap = 300;
         switch (kind) {
             case ITEM -> {
                 for (ResourceLocation key : BuiltInRegistries.ITEM.keySet()) {
-                    if (results.size() >= cap) {
-                        break;
-                    }
                     Item item = BuiltInRegistries.ITEM.get(key);
                     String name = item.getDescription().getString();
                     if (query.isEmpty() || key.toString().contains(query)
                             || name.toLowerCase().contains(query)) {
-                        results.add(new Entry(key.toString(), name, new ItemStack(item), List.of(), null));
+                        matchedIds.add(key.toString());
                     }
                 }
             }
             case ITEM_TAG -> {
                 for (var tagKey : BuiltInRegistries.ITEM.getTagNames().toList()) {
-                    if (results.size() >= cap) {
-                        break;
-                    }
                     String tagId = tagKey.location().toString();
                     if (query.isEmpty() || tagId.contains(query)) {
-                        results.add(makeEntry(tagId));
+                        matchedIds.add(tagId);
                     }
                 }
             }
             case FLUID -> {
                 for (ResourceLocation key : BuiltInRegistries.FLUID.keySet()) {
-                    if (results.size() >= cap) {
-                        break;
-                    }
                     if (query.isEmpty() || key.toString().contains(query)) {
-                        results.add(makeEntry(key.toString()));
+                        matchedIds.add(key.toString());
                     }
                 }
             }
             case FLUID_TAG -> {
                 for (var tagKey : BuiltInRegistries.FLUID.getTagNames().toList()) {
-                    if (results.size() >= cap) {
-                        break;
-                    }
                     String tagId = tagKey.location().toString();
                     if (query.isEmpty() || tagId.contains(query)) {
-                        results.add(makeEntry(tagId));
+                        matchedIds.add(tagId);
                     }
                 }
             }
             case CHEMICAL -> {
-                for (var info : MekanismChemicals.search(query, cap)) {
-                    results.add(new Entry(info.id(), info.name(), ItemStack.EMPTY, List.of(), info));
+                for (var info : MekanismChemicals.search(query, Integer.MAX_VALUE)) {
+                    matchedIds.add(info.id());
                 }
             }
             case CHEMICAL_TAG -> {
-                for (var info : MekanismChemicals.searchTags(query, cap)) {
-                    results.add(new Entry(info.id(), info.name(), ItemStack.EMPTY, List.of(), info));
+                for (var info : MekanismChemicals.searchTags(query, Integer.MAX_VALUE)) {
+                    matchedIds.add(info.id());
                 }
             }
             default -> {
             }
         }
+        loadWindow(0);
+    }
+
+    /**
+     * Materialises {@link #results} as a slice of {@link #matchedIds} starting at
+     * {@code start}, so only the items actually near the viewport pay for icon/tag
+     * resolution. Scrolling past the loaded slice re-centres the window, discarding
+     * the entries that scrolled out of range.
+     */
+    private void loadWindow(int start) {
+        int max = Math.max(0, matchedIds.size() - WINDOW_SIZE);
+        resultWindowStart = clamp(start, 0, max);
+        int end = Math.min(matchedIds.size(), resultWindowStart + WINDOW_SIZE);
+        results.clear();
+        for (int i = resultWindowStart; i < end; i++) {
+            results.add(makeEntry(matchedIds.get(i)));
+        }
+    }
+
+    /** Re-centres the loaded window if the visible index range has scrolled outside it. */
+    private void ensureWindowCovers(int firstVisible, int lastVisible) {
+        if (firstVisible >= resultWindowStart && lastVisible < resultWindowStart + results.size()) {
+            return;
+        }
+        loadWindow(firstVisible - WINDOW_SIZE / 3);
     }
 
     /** Resolve a raw id (from recents/favourites/tag search) into a renderable entry. */
@@ -434,15 +452,17 @@ public final class VanillaSlotEditScreen extends VanillaDialogScreen {
         // ---- right column: results / recent / favourites ----
         Entry hovered = null;
 
+        ensureWindowCovers(visibleFirstIndex(resultScroll, resultsW, resultsH, tag),
+                visibleLastIndex(resultScroll, resultsW, resultsH, tag));
         VanillaTheme.section(g, resultsX, resultsY, resultsW, resultsH);
         List<Entry> shownResults = results;
         Entry h1 = tag
-                ? drawList(g, shownResults, resultsX, resultsY, resultsW, resultsH, resultScroll, mouseX, mouseY, cycle)
-                : drawGrid(g, shownResults, resultsX, resultsY, resultsW, resultsH, resultScroll, mouseX, mouseY, cycle, false);
+                ? drawList(g, shownResults, resultsX, resultsY, resultsW, resultsH, resultScroll, mouseX, mouseY, cycle, resultWindowStart)
+                : drawGrid(g, shownResults, resultsX, resultsY, resultsW, resultsH, resultScroll, mouseX, mouseY, cycle, false, resultWindowStart);
         if (h1 != null) {
             hovered = h1;
         }
-        if (results.isEmpty()) {
+        if (matchedIds.isEmpty()) {
             g.drawString(this.font, "...", resultsX + 6, resultsY + 6, VanillaTheme.TEXT_DIM, true);
         }
 
@@ -450,7 +470,7 @@ public final class VanillaSlotEditScreen extends VanillaDialogScreen {
                 recentX, recentLabelY, VanillaTheme.TEXT_DIM, true);
         VanillaTheme.section(g, recentX, recentY, recentW, recentH);
         List<Entry> recent = entriesFor(SlotPicks.recent(kind));
-        Entry h2 = drawGrid(g, recent, recentX, recentY, recentW, recentH, 0, mouseX, mouseY, cycle, true);
+        Entry h2 = drawGrid(g, recent, recentX, recentY, recentW, recentH, 0, mouseX, mouseY, cycle, true, 0);
         if (h2 != null) {
             hovered = h2;
         }
@@ -460,8 +480,8 @@ public final class VanillaSlotEditScreen extends VanillaDialogScreen {
         VanillaTheme.section(g, favX, favY, favW, favH);
         List<Entry> favorites = entriesFor(SlotPicks.favorites(kind));
         Entry h3 = tag
-                ? drawList(g, favorites, favX, favY, favW, favH, favScroll, mouseX, mouseY, cycle)
-                : drawGrid(g, favorites, favX, favY, favW, favH, favScroll, mouseX, mouseY, cycle, false);
+                ? drawList(g, favorites, favX, favY, favW, favH, favScroll, mouseX, mouseY, cycle, 0)
+                : drawGrid(g, favorites, favX, favY, favW, favH, favScroll, mouseX, mouseY, cycle, false, 0);
         if (h3 != null) {
             hovered = h3;
         }
@@ -521,14 +541,15 @@ public final class VanillaSlotEditScreen extends VanillaDialogScreen {
 
     /** Draw a scrollable icon grid; returns the hovered entry (or null). */
     private Entry drawGrid(GuiGraphics g, List<Entry> list, int x, int y, int w, int h,
-                           int scroll, int mouseX, int mouseY, long cycle, boolean singleRow) {
+                           int scroll, int mouseX, int mouseY, long cycle, boolean singleRow, int indexOffset) {
         int cols = Math.max(1, w / 20);
         int shown = singleRow ? Math.min(list.size(), cols) : list.size();
         Entry hovered = null;
         g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
         for (int i = 0; i < shown; i++) {
-            int col = i % cols;
-            int row = i / cols;
+            int abs = indexOffset + i;
+            int col = abs % cols;
+            int row = abs / cols;
             int cx = x + 1 + col * 20;
             int cy = y + 1 + row * 20 - (singleRow ? 0 : scroll);
             if (cy + 18 < y || cy > y + h) {
@@ -552,12 +573,12 @@ public final class VanillaSlotEditScreen extends VanillaDialogScreen {
 
     /** Draw a scrollable list (tag rows: cycling icon + name + member count). */
     private Entry drawList(GuiGraphics g, List<Entry> list, int x, int y, int w, int h,
-                           int scroll, int mouseX, int mouseY, long cycle) {
+                           int scroll, int mouseX, int mouseY, long cycle, int indexOffset) {
         int rowH = 20;
         Entry hovered = null;
         g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
         for (int i = 0; i < list.size(); i++) {
-            int ry = y + 1 + i * rowH - scroll;
+            int ry = y + 1 + (indexOffset + i) * rowH - scroll;
             if (ry + rowH < y || ry > y + h) {
                 continue;
             }
@@ -647,7 +668,10 @@ public final class VanillaSlotEditScreen extends VanillaDialogScreen {
             return true;
         }
         if (inRect(mouseX, mouseY, resultsX, resultsY, resultsW, resultsH)) {
-            resultScroll = clampScroll(resultScroll - (int) (scrollY * 20), results.size(), resultsW, resultsH);
+            resultScroll = clampScroll(resultScroll - (int) (scrollY * 20), matchedIds.size(), resultsW, resultsH);
+            boolean tag = kind.isTag();
+            ensureWindowCovers(visibleFirstIndex(resultScroll, resultsW, resultsH, tag),
+                    visibleLastIndex(resultScroll, resultsW, resultsH, tag));
             return true;
         }
         if (inRect(mouseX, mouseY, favX, favY, favW, favH)) {
@@ -656,6 +680,19 @@ public final class VanillaSlotEditScreen extends VanillaDialogScreen {
             return true;
         }
         return false;
+    }
+
+    /** Absolute index of the first row/cell that could be visible at this scroll offset. */
+    private int visibleFirstIndex(int scroll, int w, int h, boolean tag) {
+        int cols = tag ? 1 : Math.max(1, w / 20);
+        return (scroll / 20) * cols;
+    }
+
+    /** Absolute index one past the last row/cell that could be visible at this scroll offset. */
+    private int visibleLastIndex(int scroll, int w, int h, boolean tag) {
+        int cols = tag ? 1 : Math.max(1, w / 20);
+        int rows = h / 20 + 2;
+        return visibleFirstIndex(scroll, w, h, tag) + rows * cols;
     }
 
     private int clampScroll(int value, int size, int w, int h) {

@@ -1,15 +1,20 @@
 package com.zizazr.kjsgen.integration.kubejs;
 
 import com.zizazr.kjsgen.codegen.CodegenRegistry;
+import com.zizazr.kjsgen.codegen.JsUtil;
 import com.zizazr.kjsgen.codegen.RecipeCodegen;
+import com.zizazr.kjsgen.core.ContentKind;
 import com.zizazr.kjsgen.core.RecipeInstance;
 import com.zizazr.kjsgen.core.RecipeProject;
 import com.zizazr.kjsgen.core.RecipeTypeDefinition;
 import com.zizazr.kjsgen.core.RecipeTypeRegistry;
+import com.zizazr.kjsgen.core.SlotContent;
+import com.zizazr.kjsgen.core.SlotRole;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Builds the JS text for a set of recipes: groups them by their event wrapper
@@ -52,6 +57,11 @@ public final class ScriptAssembler {
                     body.append(indent).append("// ").append(line).append("\n");
                 }
             }
+            if (recipe.replaceRecipe()) {
+                String removeIndent = indent;
+                removeStatement(recipe, type, codegen)
+                        .ifPresent(line -> body.append(removeIndent).append(line).append("\n"));
+            }
             for (String line : statement.split("\n")) {
                 body.append(indent).append(line).append("\n");
             }
@@ -70,6 +80,30 @@ public final class ScriptAssembler {
             script.append(footers.get(header)).append("\n");
         });
         return script.toString();
+    }
+
+    /**
+     * {@code event.remove({ output: '...', type: '...' })} for the recipe's primary output,
+     * so re-exporting the same recipe replaces it instead of creating a duplicate. Only emitted
+     * when the codegen handler knows the recipe's bare KubeJS type id and the output is a plain
+     * item (chemical/fluid outputs aren't reliably matched by the {@code output} filter).
+     */
+    private static Optional<String> removeStatement(RecipeInstance recipe, RecipeTypeDefinition type,
+                                                      RecipeCodegen codegen) {
+        Optional<String> removeType = codegen.removeTypeId(recipe, type);
+        if (removeType.isEmpty()) {
+            return Optional.empty();
+        }
+        SlotContent output = type.slotsByRole(SlotRole.OUTPUT).stream()
+                .map(slot -> recipe.slot(slot.key()))
+                .filter(content -> !content.isEmpty())
+                .findFirst()
+                .orElse(SlotContent.EMPTY);
+        if (output.isEmpty() || output.kind() != ContentKind.ITEM) {
+            return Optional.empty();
+        }
+        return Optional.of("event.remove({ output: " + JsUtil.quote(output.id())
+                + ", type: " + JsUtil.quote(removeType.get()) + " })");
     }
 
     private static String effectiveCondition(RecipeInstance recipe, RecipeTypeDefinition type) {

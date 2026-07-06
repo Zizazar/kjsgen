@@ -29,10 +29,6 @@ sourceSets.main.resources {
 repositories {
     mavenCentral()
     maven {
-        name = "FirstDark Snapshots"
-        url = "https://maven.firstdark.dev/snapshots"
-    }
-    maven {
         url = "https://maven.latvian.dev/releases"
     }
 
@@ -174,8 +170,6 @@ dependencies {
     // --- Dev-only mods, present in runClient/runServer so kjsgen can be tested against real
     // recipe types and items. Declared as localRuntime so they are never published as
     // dependencies of kjsgen (the mod itself needs none of them to compile).
-
-    implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}")
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
     runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")

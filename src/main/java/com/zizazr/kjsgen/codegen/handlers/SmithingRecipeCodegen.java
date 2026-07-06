@@ -5,6 +5,8 @@ import com.zizazr.kjsgen.codegen.RecipeCodegen;
 import com.zizazr.kjsgen.core.RecipeInstance;
 import com.zizazr.kjsgen.core.RecipeTypeDefinition;
 
+import java.util.Optional;
+
 /**
  * {@code event.smithingTransform(result, template, base, addition)} or
  * {@code event.smithingTrim(template, base, addition)}.
@@ -30,5 +32,10 @@ public class SmithingRecipeCodegen implements RecipeCodegen {
                 .append(JsUtil.ingredient(recipe.slot("addition"))).append(")");
         ShapedRecipeCodegen.appendCommonSuffix(js, recipe);
         return js.toString();
+    }
+
+    @Override
+    public Optional<String> removeTypeId(RecipeInstance recipe, RecipeTypeDefinition type) {
+        return Optional.of(trim ? "smithing_trim" : "smithing_transform");
     }
 }
