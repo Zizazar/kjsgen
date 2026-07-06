@@ -119,6 +119,50 @@ final class VanillaTheme {
         return new ItemStack(BuiltInRegistries.ITEM.get(rl), Math.max(1, content.count()));
     }
 
+    /** A single-count stack for a raw item id, or a barrier when the id is unknown. */
+    static ItemStack itemStack(String id) {
+        ResourceLocation rl = ResourceLocation.tryParse(id);
+        if (rl == null || !BuiltInRegistries.ITEM.containsKey(rl)) {
+            return new ItemStack(Items.BARRIER);
+        }
+        return new ItemStack(BuiltInRegistries.ITEM.get(rl));
+    }
+
+    /** A bucket item proxy for a fluid id (water bucket fallback). */
+    static ItemStack fluidBucket(String fluidId) {
+        ResourceLocation rl = ResourceLocation.tryParse(fluidId);
+        if (rl != null && BuiltInRegistries.FLUID.containsKey(rl)) {
+            Fluid fluid = BuiltInRegistries.FLUID.get(rl);
+            ItemStack bucket = new ItemStack(fluid.getBucket());
+            if (!bucket.isEmpty()) {
+                return bucket;
+            }
+        }
+        return new ItemStack(Items.WATER_BUCKET);
+    }
+
+    /** Bucket proxies for every member of a fluid tag (empty list when unknown/empty). */
+    static List<ItemStack> fluidTagStacks(String tagId) {
+        ResourceLocation rl = ResourceLocation.tryParse(tagId);
+        if (rl != null) {
+            TagKey<Fluid> tagKey = TagKey.create(Registries.FLUID, rl);
+            var holders = BuiltInRegistries.FLUID.getTag(tagKey);
+            if (holders.isPresent()) {
+                List<ItemStack> stacks = holders.get().stream()
+                        .map(holder -> {
+                            ItemStack bucket = new ItemStack(holder.value().getBucket());
+                            return bucket.isEmpty() ? new ItemStack(Items.WATER_BUCKET) : bucket;
+                        })
+                        .filter(s -> !s.isEmpty())
+                        .toList();
+                if (!stacks.isEmpty()) {
+                    return stacks;
+                }
+            }
+        }
+        return List.of();
+    }
+
     /** All items of an item tag, or a single barrier when the tag is unknown/empty. */
     static List<ItemStack> tagStacks(String tagId) {
         ResourceLocation rl = ResourceLocation.tryParse(tagId);
@@ -137,15 +181,4 @@ final class VanillaTheme {
         return List.of(new ItemStack(Items.BARRIER));
     }
 
-    private static ItemStack fluidBucket(String fluidId) {
-        ResourceLocation rl = ResourceLocation.tryParse(fluidId);
-        if (rl != null && BuiltInRegistries.FLUID.containsKey(rl)) {
-            Fluid fluid = BuiltInRegistries.FLUID.get(rl);
-            ItemStack bucket = new ItemStack(fluid.getBucket());
-            if (!bucket.isEmpty()) {
-                return bucket;
-            }
-        }
-        return new ItemStack(Items.WATER_BUCKET);
-    }
 }
