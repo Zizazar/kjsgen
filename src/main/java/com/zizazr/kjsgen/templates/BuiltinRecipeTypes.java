@@ -50,7 +50,7 @@ public final class BuiltinRecipeTypes {
         return new RecipeTypeDefinition("kjsgen:shaped", "minecraft", "minecraft:crafting_table",
                 116, 54, List.copyOf(slots),
                 List.of(LayoutDecoration.arrow(61, 19)),
-                List.of(), "kjsgen:shaped", "");
+                List.of(), "kjsgen:shaped", "", "", "minecraft:crafting");
     }
 
     private static RecipeTypeDefinition shapeless() {
@@ -62,7 +62,7 @@ public final class BuiltinRecipeTypes {
         return new RecipeTypeDefinition("kjsgen:shapeless", "minecraft", "minecraft:crafting_table",
                 116, 54, List.copyOf(slots),
                 List.of(LayoutDecoration.arrow(61, 19)),
-                List.of(), "kjsgen:shapeless", "");
+                List.of(), "kjsgen:shapeless", "", "", "minecraft:crafting");
     }
 
     private static RecipeTypeDefinition cooking(String name, String icon, float defaultXp, int defaultTime) {
@@ -80,7 +80,7 @@ public final class BuiltinRecipeTypes {
                         ParameterDefinition.ofFloat("xp", defaultXp),
                         ParameterDefinition.ofInt("cookingTime", defaultTime)
                 ),
-                "kjsgen:" + name, "");
+                "kjsgen:" + name, "", "", "minecraft:" + name);
     }
 
     private static RecipeTypeDefinition stonecutting() {
@@ -91,7 +91,7 @@ public final class BuiltinRecipeTypes {
                         new SlotDefinition("output", SlotRole.OUTPUT, 60, 8, true, true, false, false, true, false)
                 ),
                 List.of(LayoutDecoration.arrow(26, 9)),
-                List.of(), "kjsgen:stonecutting", "");
+                List.of(), "kjsgen:stonecutting", "", "", "minecraft:stonecutting");
     }
 
     private static RecipeTypeDefinition smithingTransform() {
@@ -104,7 +104,7 @@ public final class BuiltinRecipeTypes {
                         new SlotDefinition("output", SlotRole.OUTPUT, 94, 0, true, true, false, false, false, false)
                 ),
                 List.of(LayoutDecoration.arrow(62, 1)),
-                List.of(), "kjsgen:smithing_transform", "");
+                List.of(), "kjsgen:smithing_transform", "", "", "minecraft:smithing");
     }
 
     private static RecipeTypeDefinition smithingTrim() {
@@ -119,7 +119,7 @@ public final class BuiltinRecipeTypes {
                         LayoutDecoration.arrow(62, 1),
                         LayoutDecoration.text(94, 5, "trim")
                 ),
-                List.of(), "kjsgen:smithing_trim", "");
+                List.of(), "kjsgen:smithing_trim", "", "", "minecraft:smithing");
     }
 
     private static RecipeTypeDefinition brewing() {
@@ -131,6 +131,6 @@ public final class BuiltinRecipeTypes {
                         new SlotDefinition("output", SlotRole.OUTPUT, 80, 21, true, true, false, false, false, false)
                 ),
                 List.of(LayoutDecoration.arrow(48, 22)),
-                List.of(), "kjsgen:brewing", "morejs");
+                List.of(), "kjsgen:brewing", "morejs", "", "minecraft:brewing");
     }
 }

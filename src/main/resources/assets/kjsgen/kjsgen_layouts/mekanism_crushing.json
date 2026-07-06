@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:mekanism_crushing",
+  "jei": "mekanism:crushing",
   "mod": "mekanism",
   "icon": "mekanism:crusher",
   "width": 82,

@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_crushing",
+  "jei": "create:crushing",
   "mod": "create",
   "icon": "create:crushing_wheel",
   "width": 82,

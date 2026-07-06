@@ -56,6 +56,7 @@
   "kjsgen.ui.import_jei_done": "Imported %s JEI layouts (%s skipped). Check the 'Template' parameter of imported types - the KubeJS syntax is a best guess.",
   "kjsgen.ui.import_jei_unavailable": "JEI runtime is not ready yet - join a world first.",
   "kjsgen.ui.import_jei_errors": "Failed: %s",
+  "kjsgen.jei.edit_button": "Edit in kjsgen",
   "kjsgen.ui.edit_layout": "Layout",
   "kjsgen.ui.layout_editor": "Layout editor: %s",
   "kjsgen.ui.layout_hint": "Click an element to select it, drag to move. Add slots and decorations below.",

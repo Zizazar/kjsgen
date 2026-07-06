@@ -56,6 +56,7 @@
   "kjsgen.ui.import_jei_done": "Импортировано layout'ов из JEI: %s (пропущено: %s). Проверьте параметр «Шаблон» у импортированных типов — синтаксис KubeJS подставлен приблизительно.",
   "kjsgen.ui.import_jei_unavailable": "JEI ещё не запущен — сначала войдите в мир.",
   "kjsgen.ui.import_jei_errors": "Не удалось: %s",
+  "kjsgen.jei.edit_button": "Редактировать в kjsgen",
   "kjsgen.ui.edit_layout": "Раскладка",
   "kjsgen.ui.layout_editor": "Редактор раскладки: %s",
   "kjsgen.ui.layout_hint": "Кликните по элементу, чтобы выбрать его; перетаскивайте мышью. Кнопки ниже добавляют слоты и декорации.",

@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:mekanism_metallurgic_infusing",
+  "jei": "mekanism:metallurgic_infusing",
   "mod": "mekanism",
   "icon": "mekanism:metallurgic_infuser",
   "width": 102,

@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:mekanism_enriching",
+  "jei": "mekanism:enriching",
   "mod": "mekanism",
   "icon": "mekanism:enrichment_chamber",
   "width": 82,

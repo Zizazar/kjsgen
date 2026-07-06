@@ -3,9 +3,13 @@ package com.zizazr.kjsgen;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.mojang.blaze3d.platform.InputConstants;
+import com.zizazr.kjsgen.core.ProjectManager;
+import com.zizazr.kjsgen.core.RecipeInstance;
+import com.zizazr.kjsgen.core.RecipeProject;
 import com.zizazr.kjsgen.templates.JsonLayoutLoader;
 import com.zizazr.kjsgen.templates.UserLayoutStore;
 import com.zizazr.kjsgen.ui.KjsGenUI;
+import com.zizazr.kjsgen.ui.vanilla.VanillaEditorScreen;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -102,6 +106,21 @@ public class KjsGenClient {
         if (!mayEdit(mc)) {
             return;
         }
-        mc.setScreen(new com.zizazr.kjsgen.ui.vanilla.VanillaEditorScreen());
+        mc.setScreen(new VanillaEditorScreen());
+    }
+
+    /**
+     * Adds (or replaces the same type+output entry of) {@code recipe} in the current
+     * project and opens the vanilla editor with it selected. Called from the JEI
+     * "edit in kjsgen" recipe button.
+     */
+    public static void openEditorWithCapturedRecipe(RecipeInstance recipe) {
+        Minecraft mc = Minecraft.getInstance();
+        if (!mayEdit(mc)) {
+            return;
+        }
+        RecipeProject project = ProjectManager.current();
+        String uid = project.addOrReplaceByOutput(recipe);
+        mc.setScreen(new VanillaEditorScreen(uid));
     }
 }

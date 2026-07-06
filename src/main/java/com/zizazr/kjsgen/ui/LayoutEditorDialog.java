@@ -596,7 +596,7 @@ public final class LayoutEditorDialog {
                 type.id(), type.modId(), type.iconItem(),
                 canvasWidth, canvasHeight,
                 newSlots, newDecos, List.copyOf(newParams),
-                type.codegenId(), type.requiresMod());
+                type.codegenId(), type.requiresMod(), type.editorKind(), type.jeiCategory());
         RecipeTypeRegistry.register(updated);
         UserLayoutStore.save(updated);
 

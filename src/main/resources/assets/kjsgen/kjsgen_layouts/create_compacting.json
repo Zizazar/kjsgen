@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_compacting",
+  "jei": "create:packing",
   "mod": "create",
   "icon": "create:mechanical_press",
   "width": 118,

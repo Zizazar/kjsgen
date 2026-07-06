@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_emptying",
+  "jei": "create:draining",
   "mod": "create",
   "icon": "create:item_drain",
   "width": 82,

@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_haunting",
+  "jei": "create:fan_haunting",
   "mod": "create",
   "icon": "create:encased_fan",
   "width": 82,

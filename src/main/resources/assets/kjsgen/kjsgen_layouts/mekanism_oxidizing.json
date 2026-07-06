@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:mekanism_oxidizing",
+  "jei": "mekanism:oxidizing",
   "mod": "mekanism",
   "icon": "mekanism:chemical_oxidizer",
   "width": 82,

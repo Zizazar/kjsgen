@@ -3,6 +3,7 @@ package com.zizazr.kjsgen.integration.jei;
 import com.zizazr.kjsgen.KjsGen;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
+import mezz.jei.api.registration.IAdvancedRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
 
@@ -25,6 +26,11 @@ public class KjsgenJeiPlugin implements IModPlugin {
     @Override
     public ResourceLocation getPluginUid() {
         return ResourceLocation.fromNamespaceAndPath(KjsGen.MODID, "jei_plugin");
+    }
+
+    @Override
+    public void registerAdvanced(IAdvancedRegistration registration) {
+        registration.addRecipeButtonFactory(new JeiEditButtonController.Factory());
     }
 
     @Override

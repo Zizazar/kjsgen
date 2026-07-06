@@ -25,6 +25,9 @@ import java.util.Optional;
  * @param editorKind   special editor UI for this type: {@code ""} = the standard fixed-slot canvas,
  *                     {@code "grid"} = a resizable WxH crafting grid (Create mechanical crafting),
  *                     {@code "sequence"} = a vertical, reorderable stage list (Create sequenced assembly)
+ * @param jeiCategory  optional JEI category UID this type mirrors (e.g. "create:pressing"), letting the
+ *                     "Edit in kjsgen" JEI button map a shown recipe onto this hand-authored layout; empty
+ *                     means the type has no JEI mapping (the button is hidden for that category)
  */
 public record RecipeTypeDefinition(
         String id,
@@ -37,14 +40,24 @@ public record RecipeTypeDefinition(
         List<ParameterDefinition> parameters,
         String codegenId,
         String requiresMod,
-        String editorKind
+        String editorKind,
+        String jeiCategory
 ) {
     /** Backwards-compatible constructor for the common standard-canvas type. */
     public RecipeTypeDefinition(String id, String modId, String iconItem, int canvasWidth, int canvasHeight,
                                 List<SlotDefinition> slots, List<LayoutDecoration> decorations,
                                 List<ParameterDefinition> parameters, String codegenId, String requiresMod) {
         this(id, modId, iconItem, canvasWidth, canvasHeight, slots, decorations, parameters,
-                codegenId, requiresMod, "");
+                codegenId, requiresMod, "", "");
+    }
+
+    /** Backwards-compatible constructor for a type with a custom editor kind but no JEI mapping. */
+    public RecipeTypeDefinition(String id, String modId, String iconItem, int canvasWidth, int canvasHeight,
+                                List<SlotDefinition> slots, List<LayoutDecoration> decorations,
+                                List<ParameterDefinition> parameters, String codegenId, String requiresMod,
+                                String editorKind) {
+        this(id, modId, iconItem, canvasWidth, canvasHeight, slots, decorations, parameters,
+                codegenId, requiresMod, editorKind, "");
     }
     /** Translation key of the display name, e.g. "kjsgen.recipe_type.kjsgen.shaped". */
     public String translationKey() {
@@ -96,6 +109,7 @@ public record RecipeTypeDefinition(
         json.addProperty("codegen", codegenId);
         if (!requiresMod.isEmpty()) json.addProperty("requiresMod", requiresMod);
         if (!editorKind.isEmpty()) json.addProperty("editorKind", editorKind);
+        if (!jeiCategory.isEmpty()) json.addProperty("jei", jeiCategory);
         return json;
     }
 
@@ -123,7 +137,8 @@ public record RecipeTypeDefinition(
                 List.copyOf(parameters),
                 json.has("codegen") ? json.get("codegen").getAsString() : "",
                 json.has("requiresMod") ? json.get("requiresMod").getAsString() : "",
-                json.has("editorKind") ? json.get("editorKind").getAsString() : ""
+                json.has("editorKind") ? json.get("editorKind").getAsString() : "",
+                json.has("jei") ? json.get("jei").getAsString() : ""
         );
     }
 }

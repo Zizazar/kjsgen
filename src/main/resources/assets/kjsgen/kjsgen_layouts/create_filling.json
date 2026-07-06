@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_filling",
+  "jei": "create:spout_filling",
   "mod": "create",
   "icon": "create:spout",
   "width": 82,

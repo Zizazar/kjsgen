@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:mekanism_energy_conversion",
+  "jei": "mekanism:energy_conversion",
   "mod": "mekanism",
   "icon": "mekanism:basic_energy_cube",
   "width": 82,

@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_milling",
+  "jei": "create:milling",
   "mod": "create",
   "icon": "create:millstone",
   "width": 82,

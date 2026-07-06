@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:mekanism_combining",
+  "jei": "mekanism:combining",
   "mod": "mekanism",
   "icon": "mekanism:combiner",
   "width": 82,

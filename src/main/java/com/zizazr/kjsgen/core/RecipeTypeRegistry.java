@@ -24,6 +24,24 @@ public final class RecipeTypeRegistry {
         return Optional.ofNullable(TYPES.get(id));
     }
 
+    /**
+     * Finds the registered type whose {@code jeiCategory} matches the given JEI
+     * category UID (e.g. "create:pressing"). Used by the JEI "Edit in kjsgen"
+     * button to map a shown recipe onto its hand-authored layout — returns empty
+     * when no layout implements that category (so the button stays hidden).
+     */
+    public static Optional<RecipeTypeDefinition> getByJeiCategory(String jeiCategoryUid) {
+        if (jeiCategoryUid == null || jeiCategoryUid.isEmpty()) {
+            return Optional.empty();
+        }
+        for (RecipeTypeDefinition definition : TYPES.values()) {
+            if (jeiCategoryUid.equals(definition.jeiCategory())) {
+                return Optional.of(definition);
+            }
+        }
+        return Optional.empty();
+    }
+
     public static Collection<RecipeTypeDefinition> all() {
         return TYPES.values();
     }

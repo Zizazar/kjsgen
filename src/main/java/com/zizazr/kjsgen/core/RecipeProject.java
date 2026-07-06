@@ -79,6 +79,29 @@ public final class RecipeProject {
         recipes.removeIf(r -> r.uid().equals(recipe.uid()));
     }
 
+    /**
+     * Adds {@code recipe}, first dropping any existing recipe of the same type that
+     * produces the same primary output — so re-capturing the same JEI recipe updates
+     * the entry instead of piling up duplicates. Returns the added recipe's uid.
+     */
+    public String addOrReplaceByOutput(RecipeInstance recipe) {
+        String output = primaryOutputId(recipe);
+        if (!output.isEmpty()) {
+            recipes.removeIf(r -> r.typeId().equals(recipe.typeId()) && primaryOutputId(r).equals(output));
+        }
+        recipes.add(recipe);
+        return recipe.uid();
+    }
+
+    /** Registry id of the recipe's first non-empty output slot, or "" when it has none. */
+    private static String primaryOutputId(RecipeInstance recipe) {
+        return recipe.slots().entrySet().stream()
+                .filter(e -> e.getKey().startsWith("output") && !e.getValue().isEmpty())
+                .map(e -> e.getValue().id())
+                .findFirst()
+                .orElse("");
+    }
+
     /** Effective export file of a recipe (recipe override or project default). */
     public String targetFileOf(RecipeInstance recipe) {
         return recipe.targetFile().isEmpty() ? defaultTargetFile : recipe.targetFile();

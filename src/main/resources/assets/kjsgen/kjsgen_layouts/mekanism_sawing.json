@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:mekanism_sawing",
+  "jei": "mekanism:sawing",
   "mod": "mekanism",
   "icon": "mekanism:precision_sawmill",
   "width": 82,

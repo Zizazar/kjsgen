@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_pressing",
+  "jei": "create:pressing",
   "mod": "create",
   "icon": "create:mechanical_press",
   "width": 82,

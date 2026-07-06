@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:mekanism_crystallizing",
+  "jei": "mekanism:crystallizing",
   "mod": "mekanism",
   "icon": "mekanism:chemical_crystallizer",
   "width": 82,

@@ -20,6 +20,9 @@ import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.ShapelessRecipe;
+import net.minecraft.world.item.crafting.SmithingTrimRecipe;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -103,8 +106,50 @@ public final class JeiLayoutImporter {
         if (layout.isEmpty()) {
             return Optional.empty();
         }
+        return buildDefinition(category, layout.get());
+    }
 
-        List<IRecipeSlotView> slotViews = layout.get().getRecipeSlotsView().getSlotViews();
+    /**
+     * Maps a laid-out JEI recipe onto the hand-authored kjsgen layout registered for its
+     * category — looked up by the layout's {@code jeiCategory} field (e.g. "create:pressing").
+     * Returns empty when no layout implements that category, so the "Edit in kjsgen" button
+     * only appears for recipes we can actually generate KubeJS for (no on-the-fly generation).
+     */
+    public static <T> Optional<RecipeTypeDefinition> mappedTypeFor(IRecipeLayoutDrawable<T> layout) {
+        String jeiUid = layout.getRecipeCategory().getRecipeType().getUid().toString();
+        Optional<RecipeTypeDefinition> mapped = RecipeTypeRegistry.getByJeiCategory(jeiUid);
+        if (mapped.isEmpty()) {
+            return mapped;
+        }
+        // A couple of vanilla JEI categories host two kjsgen types each (crafting =
+        // shaped|shapeless, smithing = transform|trim). Refine by the actual recipe
+        // subtype so the editor opens on the right one; fall back to the default match.
+        String refinedId = refineSharedCategory(jeiUid, layout.getRecipe());
+        if (refinedId != null) {
+            Optional<RecipeTypeDefinition> refined = RecipeTypeRegistry.get(refinedId);
+            if (refined.isPresent()) {
+                return refined;
+            }
+        }
+        return mapped;
+    }
+
+    /** Picks the specific kjsgen type id for JEI categories that back two of them, else null. */
+    private static String refineSharedCategory(String jeiUid, Object recipe) {
+        Object value = recipe instanceof RecipeHolder<?> holder ? holder.value() : recipe;
+        return switch (jeiUid) {
+            case "minecraft:crafting" ->
+                    value instanceof ShapelessRecipe ? "kjsgen:shapeless" : "kjsgen:shaped";
+            case "minecraft:smithing" ->
+                    value instanceof SmithingTrimRecipe ? "kjsgen:smithing_trim" : "kjsgen:smithing_transform";
+            default -> null;
+        };
+    }
+
+    /** Derives a kjsgen {@link RecipeTypeDefinition} from a laid-out JEI recipe (slot positions + roles). */
+    public static <T> Optional<RecipeTypeDefinition> buildDefinition(IRecipeCategory<T> category,
+                                                                     IRecipeLayoutDrawable<T> layout) {
+        List<IRecipeSlotView> slotViews = layout.getRecipeSlotsView().getSlotViews();
         List<SlotDefinition> slots = new ArrayList<>();
         String iconItem = "";
         int inputs = 0;

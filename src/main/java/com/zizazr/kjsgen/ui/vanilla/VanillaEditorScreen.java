@@ -80,6 +80,12 @@ public class VanillaEditorScreen extends Screen {
         super(Component.translatable("kjsgen.title"));
     }
 
+    /** Opens with a specific recipe pre-selected (e.g. one just captured from JEI). */
+    public VanillaEditorScreen(String selectedUid) {
+        super(Component.translatable("kjsgen.title"));
+        this.selectedUid = selectedUid;
+    }
+
     @Override
     protected void init() {
         if (selectedUid == null && !project.recipes().isEmpty()) {

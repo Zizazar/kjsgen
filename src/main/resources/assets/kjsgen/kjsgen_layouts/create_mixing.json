@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_mixing",
+  "jei": "create:mixing",
   "mod": "create",
   "icon": "create:mechanical_mixer",
   "width": 118,

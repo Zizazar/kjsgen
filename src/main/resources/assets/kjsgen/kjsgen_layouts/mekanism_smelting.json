@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:mekanism_smelting",
+  "jei": "mekanism:smelting",
   "mod": "mekanism",
   "icon": "mekanism:energized_smelter",
   "width": 82,

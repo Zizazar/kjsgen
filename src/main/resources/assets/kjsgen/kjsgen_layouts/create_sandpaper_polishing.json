@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_sandpaper_polishing",
+  "jei": "create:sandpaper_polishing",
   "mod": "create",
   "icon": "create:sand_paper",
   "width": 82,

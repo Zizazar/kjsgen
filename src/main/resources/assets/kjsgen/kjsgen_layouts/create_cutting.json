@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_cutting",
+  "jei": "create:sawing",
   "mod": "create",
   "icon": "create:mechanical_saw",
   "width": 82,

@@ -1,5 +1,6 @@
 {
   "id": "kjsgen:create_sequenced_assembly",
+  "jei": "create:sequenced_assembly",
   "mod": "create",
   "icon": "create:depot",
   "width": 120,
