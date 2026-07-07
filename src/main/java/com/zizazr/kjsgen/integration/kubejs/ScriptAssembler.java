@@ -102,8 +102,7 @@ public final class ScriptAssembler {
         if (output.isEmpty() || output.kind() != ContentKind.ITEM) {
             return Optional.empty();
         }
-        return Optional.of("event.remove({ output: " + JsUtil.quote(output.id())
-                + ", type: " + JsUtil.quote(removeType.get()) + " })");
+        return Optional.of("event.remove({ output: " + JsUtil.quote(output.id()) + " })");
     }
 
     private static String effectiveCondition(RecipeInstance recipe, RecipeTypeDefinition type) {
