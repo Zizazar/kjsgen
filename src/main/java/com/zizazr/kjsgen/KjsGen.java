@@ -3,12 +3,15 @@ package com.zizazr.kjsgen;
 import com.mojang.logging.LogUtils;
 import com.zizazr.kjsgen.api.RegisterRecipeTypesEvent;
 import com.zizazr.kjsgen.codegen.CodegenRegistry;
+import com.zizazr.kjsgen.integration.net.KjsGenNet;
+import com.zizazr.kjsgen.integration.net.ServerProjectStore;
 import com.zizazr.kjsgen.templates.BuiltinRecipeTypes;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 
 /**
@@ -24,6 +27,9 @@ public class KjsGen {
         CodegenRegistry.registerBuiltins();
         BuiltinRecipeTypes.register();
         modEventBus.addListener(this::commonSetup);
+        // Multiplayer sync: register the payload channels (mod bus) and server-side viewer cleanup.
+        modEventBus.addListener(KjsGenNet::register);
+        NeoForge.EVENT_BUS.addListener(ServerProjectStore::onLogout);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {

@@ -301,6 +301,11 @@ final class VanillaSequencePanel {
         scroll = Math.max(0, scroll + (int) (-scrollY * ROW_H));
     }
 
+    /** True while a stage row is being dragged for reordering (drives the "grabbing" cursor). */
+    boolean isReordering() {
+        return dragIndex >= 0;
+    }
+
     // ---- hit helpers -----------------------------------------------------
 
     private boolean hover(int mouseX, int mouseY, int sx, int sy) {

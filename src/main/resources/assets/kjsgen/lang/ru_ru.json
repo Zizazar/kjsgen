@@ -92,6 +92,14 @@
   "kjsgen.ui.export_done": "Экспорт завершён",
   "kjsgen.export.warn_no_kubejs": "KubeJS не установлен: скрипты будут записаны, но заработают только после установки KubeJS.",
 
+  "kjsgen.ui.on_screen": "экран: %s",
+  "kjsgen.screen.editor": "Редактор",
+  "kjsgen.screen.slot": "Редактирует слот",
+  "kjsgen.screen.type_picker": "Выбор типа",
+  "kjsgen.screen.projects": "Проекты",
+  "kjsgen.screen.export": "Экспорт",
+  "kjsgen.screen.code_preview": "Просмотр кода",
+
   "kjsgen.slot_role.input": "вход",
   "kjsgen.slot_role.output": "выход",
   "kjsgen.slot_role.catalyst": "катализатор",

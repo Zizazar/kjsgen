@@ -2,6 +2,7 @@ package com.zizazr.kjsgen.ui.vanilla;
 
 import com.zizazr.kjsgen.core.ProjectManager;
 import com.zizazr.kjsgen.core.RecipeProject;
+import com.zizazr.kjsgen.integration.net.ClientEditSession;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -35,7 +36,12 @@ public final class VanillaProjectsScreen extends VanillaDialogScreen {
         listW = w;
         listH = dialogH - 26 - 52;
 
-        names = ProjectManager.listProjects();
+        if (ClientEditSession.isRemote()) {
+            names = ClientEditSession.projectNames();
+            ClientEditSession.requestList(); // refreshed async via setNames(...)
+        } else {
+            names = ProjectManager.listProjects();
+        }
 
         // new project row
         int ny = listY + listH + 6;
@@ -53,9 +59,19 @@ public final class VanillaProjectsScreen extends VanillaDialogScreen {
     private void createProject() {
         String name = nameField.getValue();
         if (name != null && !name.isBlank()) {
-            ((VanillaEditorScreen) parent).setProject(new RecipeProject(name.trim()));
+            if (ClientEditSession.isRemote()) {
+                // Server creates it and replies with a snapshot that refreshes the editor.
+                ClientEditSession.createProject(name.trim());
+            } else {
+                ((VanillaEditorScreen) parent).setProject(new RecipeProject(name.trim()));
+            }
             onClose();
         }
+    }
+
+    /** Called from {@link ClientEditSession} when the server sends an updated project list. */
+    public void setNames(List<String> names) {
+        this.names = names;
     }
 
     @Override
@@ -98,8 +114,14 @@ public final class VanillaProjectsScreen extends VanillaDialogScreen {
             if (index >= 0 && index < names.size()) {
                 String name = names.get(index);
                 if (mouseX >= listX + listW - 16) {
-                    ProjectManager.delete(name);
-                    names = ProjectManager.listProjects();
+                    ClientEditSession.deleteProject(name);
+                    if (!ClientEditSession.isRemote()) {
+                        names = ClientEditSession.projectNames();
+                    }
+                } else if (ClientEditSession.isRemote()) {
+                    // Server sends a snapshot of the opened project, refreshing the editor.
+                    ClientEditSession.requestOpen(name);
+                    onClose();
                 } else {
                     ProjectManager.load(name).ifPresent(project -> {
                         ((VanillaEditorScreen) parent).setProject(project);

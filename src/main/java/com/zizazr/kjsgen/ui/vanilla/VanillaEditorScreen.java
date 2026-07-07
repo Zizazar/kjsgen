@@ -12,6 +12,8 @@ import com.zizazr.kjsgen.core.RecipeValidator;
 import com.zizazr.kjsgen.core.SlotContent;
 import com.zizazr.kjsgen.core.SlotDefinition;
 import com.zizazr.kjsgen.integration.kubejs.ScriptAssembler;
+import com.zizazr.kjsgen.integration.net.ClientEditSession;
+import com.zizazr.kjsgen.integration.net.ClientPresence;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -27,6 +29,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * The kjsgen recipe editor: a {@link Screen}-based UI that renders everything
@@ -39,13 +42,30 @@ public class VanillaEditorScreen extends Screen {
     private static final int ROW_H = 20;
     private static final int PARAM_ROW_H = 18;
 
-    private RecipeProject project = ProjectManager.current();
+    private static final long PUSH_DELAY_MS = 350;
+
+    private RecipeProject project = ClientEditSession.project();
     private String selectedUid;
 
     // ---- derived caches (rebuilt when the model changes) -----------------
     private List<String> previewLines = List.of("");
     private List<RecipeValidator.Issue> issues = new ArrayList<>();
     private boolean derivedDirty = true;
+
+    // ---- multiplayer sync (debounced pushes; see markDirty/tick) ---------
+    private String recipePushUid;
+    private long recipePushDueAt;
+    private boolean metaPushDue;
+    private long metaPushDueAt;
+    /** Set while init()/buildParamWidgets programmatically fills widgets, so EditBox.setValue
+     *  responders don't schedule spurious network pushes (which would ping-pong between clients). */
+    private boolean suppressPush;
+
+    // ---- live cursor sharing (see tick(): our mouse is broadcast to the other viewers) ----
+    private int localMouseX, localMouseY;
+    private int lastSentX = Integer.MIN_VALUE;
+    private int lastSentY = Integer.MIN_VALUE;
+    private String lastSentState = "";
 
     // ---- scroll state ----------------------------------------------------
     private int listScroll;
@@ -75,16 +95,19 @@ public class VanillaEditorScreen extends Screen {
 
     public VanillaEditorScreen() {
         super(Component.translatable("kjsgen.title"));
+        ClientEditSession.requestOpen(project.name());
     }
 
     /** Opens with a specific recipe pre-selected (e.g. one just captured from JEI). */
     public VanillaEditorScreen(String selectedUid) {
         super(Component.translatable("kjsgen.title"));
         this.selectedUid = selectedUid;
+        ClientEditSession.requestOpen(project.name());
     }
 
     @Override
     protected void init() {
+        suppressPush = true;
         if (selectedUid == null && !project.recipes().isEmpty()) {
             selectedUid = project.recipes().get(0).uid();
         }
@@ -117,6 +140,7 @@ public class VanillaEditorScreen extends Screen {
         projectNameField.setResponder(name -> {
             if (!name.isBlank()) {
                 project.setName(name.trim());
+                scheduleMetaPush();
             }
         });
 
@@ -136,6 +160,7 @@ public class VanillaEditorScreen extends Screen {
         layoutParamWidgets();
 
         derivedDirty = true;
+        suppressPush = false;
     }
 
     private void computeGeometry() {
@@ -312,29 +337,152 @@ public class VanillaEditorScreen extends Screen {
         return selectedUid == null ? Optional.empty() : project.recipeByUid(selectedUid);
     }
 
+    /** The uid of the recipe currently selected here (used by the collab cursor overlay). */
+    String selectedRecipeUid() {
+        return selectedUid;
+    }
+
     RecipeProject project() {
         return project;
     }
 
     void markDirty() {
         derivedDirty = true;
-    }
-
-    void saveProject(boolean notify) {
-        try {
-            ProjectManager.save(project);
-            if (notify && this.minecraft != null && this.minecraft.player != null) {
-                this.minecraft.player.displayClientMessage(Component.translatable("kjsgen.ui.saved"), true);
-            }
-        } catch (IOException e) {
-            KjsGen.LOGGER.error("Failed to save project", e);
+        // A user edit to the selected recipe: schedule a debounced upsert to the server.
+        if (!suppressPush && selectedUid != null) {
+            recipePushUid = selectedUid;
+            recipePushDueAt = System.currentTimeMillis() + PUSH_DELAY_MS;
         }
     }
 
-    /** Switch to another project (called back from the projects screen). */
+    /** Schedule a debounced push of the project's meta fields (name + export options). */
+    void scheduleMetaPush() {
+        if (!suppressPush) {
+            metaPushDue = true;
+            metaPushDueAt = System.currentTimeMillis() + PUSH_DELAY_MS;
+        }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        long now = System.currentTimeMillis();
+        if (recipePushUid != null && now >= recipePushDueAt) {
+            flushRecipePush();
+        }
+        if (metaPushDue && now >= metaPushDueAt) {
+            metaPushDue = false;
+            ClientEditSession.pushMeta();
+        }
+        // Tell the others which recipe we have open (so they can locate/highlight it, and only
+        // show our cursor when they're on the same one). tickScreenReport() sends it on change.
+        ClientEditSession.setLocalRecipe(selectedUid);
+        // Broadcast our cursor to the other operators (panel-relative, only when it changes).
+        if (ClientEditSession.isRemote()) {
+            int px = localMouseX - panelX;
+            int py = localMouseY - panelY;
+            String state = cursorStateAt(localMouseX, localMouseY);
+            if (px != lastSentX || py != lastSentY || !state.equals(lastSentState)) {
+                lastSentX = px;
+                lastSentY = py;
+                lastSentState = state;
+                ClientEditSession.sendCursor(px, py, state);
+            }
+        }
+    }
+
+    /** The cursor sprite that best describes what the local pointer is over (sent to other viewers). */
+    private String cursorStateAt(double mx, double my) {
+        if (selectedTypeHasEditorKind("sequence") && sequencePanel.isReordering()) {
+            return "grabbing";
+        }
+        for (var child : this.children()) {
+            if (child instanceof EditBox eb && eb.visible && eb.isMouseOver(mx, my)) {
+                return "ibeam";
+            }
+        }
+        for (var child : this.children()) {
+            if (child instanceof AbstractWidget w && !(child instanceof EditBox)
+                    && w.visible && w.isMouseOver(mx, my)) {
+                return "pointing_hand";
+            }
+        }
+        if (inside(mx, my, canvasBoxX, canvasBoxY, canvasBoxW, canvasBoxH)) {
+            return "crosshair";
+        }
+        if (inside(mx, my, listX, listY, listW, listViewH)) {
+            return "pointing_hand";
+        }
+        return "default";
+    }
+
+    /** Send the pending recipe upsert immediately, if any. */
+    private void flushRecipePush() {
+        if (recipePushUid != null) {
+            String uid = recipePushUid;
+            recipePushUid = null;
+            project.recipeByUid(uid).ifPresent(ClientEditSession::pushRecipe);
+        }
+    }
+
+    @Override
+    public void removed() {
+        // Called whenever the editor stops being the current screen — including when it merely
+        // opens a sub-dialog (Export/Projects). So only flush pending edits here; do NOT unregister
+        // as a viewer (that happens in onClose, the real "leave the editor" path).
+        flushPending();
+        // Our cursor is no longer on this screen; hide it for the others (we stay a viewer).
+        ClientEditSession.hideCursor();
+        lastSentX = Integer.MIN_VALUE;
+        lastSentState = "";
+    }
+
+    @Override
+    public void onClose() {
+        // ESC on the editor itself: flush, stop being a viewer, then return to the game.
+        flushPending();
+        ClientEditSession.closeProject();
+        super.onClose();
+    }
+
+    private void flushPending() {
+        flushRecipePush();
+        if (metaPushDue) {
+            metaPushDue = false;
+            ClientEditSession.pushMeta();
+        }
+    }
+
+    /** Re-sync the editor to the session's project after a server snapshot/delta arrived. */
+    public void refreshFromSession() {
+        this.project = ClientEditSession.project();
+        if (selectedUid != null && project.recipeByUid(selectedUid).isEmpty()) {
+            selectedUid = project.recipes().isEmpty() ? null : project.recipes().get(0).uid();
+        }
+        rebuildWidgets();
+    }
+
+    void saveProject(boolean notify) {
+        if (ClientEditSession.isRemote()) {
+            // The server is authoritative and persists every op; just flush pending edits.
+            flushRecipePush();
+            ClientEditSession.pushMeta();
+        } else {
+            try {
+                ProjectManager.save(project);
+            } catch (IOException e) {
+                KjsGen.LOGGER.error("Failed to save project", e);
+            }
+        }
+        if (notify && this.minecraft != null && this.minecraft.player != null) {
+            this.minecraft.player.displayClientMessage(Component.translatable("kjsgen.ui.saved"), true);
+        }
+    }
+
+    /** Switch to another project (called back from the projects screen, local mode only). */
     void setProject(RecipeProject newProject) {
         this.project = newProject;
-        ProjectManager.setCurrent(newProject);
+        ClientEditSession.setLocalProject(newProject);
         this.selectedUid = newProject.recipes().isEmpty() ? null : newProject.recipes().get(0).uid();
         this.listScroll = 0;
         this.paramScroll = 0;
@@ -346,6 +494,7 @@ public class VanillaEditorScreen extends Screen {
         RecipeInstance recipe = new RecipeInstance(type.id());
         project.add(recipe);
         selectedUid = recipe.uid();
+        ClientEditSession.pushRecipe(recipe);
         rebuildWidgets();
     }
 
@@ -380,6 +529,8 @@ public class VanillaEditorScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(g, mouseX, mouseY, partialTick);
+        this.localMouseX = mouseX;
+        this.localMouseY = mouseY;
         this.hoverTooltip = null;
         if (derivedDirty) {
             recomputeDerived();
@@ -397,6 +548,17 @@ public class VanillaEditorScreen extends Screen {
         // widgets on top of the custom panels
         for (Renderable r : this.renderables) {
             r.render(g, mouseX, mouseY, partialTick);
+        }
+
+        // Presence head-icons sit in the header, just before the project name field. The remote
+        // cursors themselves are drawn as a global top-most overlay (see KjsGenClient), so they
+        // float above every widget and tooltip; here we only publish where our panel is.
+        CollabCursors.setPanel(panelX, panelY);
+        if (projectNameField != null) {
+            List<Component> headTooltip = CollabHeads.render(g, projectNameField.getX() - 4, panelY + 6, mouseX, mouseY);
+            if (headTooltip != null) {
+                hoverTooltip = headTooltip;
+            }
         }
 
         if (hoverTooltip != null) {
@@ -455,10 +617,34 @@ public class VanillaEditorScreen extends Screen {
             int dupX = delX - 15;
             drawDuplicateIcon(g, dupX, rowY + 5, hovered);
             drawDeleteIcon(g, delX + 3, rowY + 6, hovered);
+
+            // Frame the row in the colour of any other operator who has this recipe open.
+            drawRemoteRecipeMarkers(g, recipe.uid(), rowY);
         }
         g.disableScissor();
 
         drawScrollbar(g, listX + listW - 3, listY, listViewH, recipes.size() * ROW_H, listScroll);
+    }
+
+    /**
+     * Outline a recipe row in the colour of every other operator who currently has that recipe
+     * open. Multiple operators nest inwards. This is how you find where the others are working when
+     * their cursor isn't on your screen (a matching recipe additionally shows their live cursor).
+     */
+    private void drawRemoteRecipeMarkers(GuiGraphics g, String uid, int rowY) {
+        UUID self = this.minecraft != null && this.minecraft.player != null
+                ? this.minecraft.player.getUUID() : null;
+        int inset = 0;
+        for (ClientPresence.Viewer v : ClientPresence.viewers()) {
+            if (v.uuid().equals(self) || !uid.equals(ClientPresence.recipeUid(v.uuid()))) {
+                continue;
+            }
+            g.renderOutline(listX + 1 + inset, rowY + inset,
+                    listW - 2 - 2 * inset, ROW_H - 2 * inset, CollabColors.colorFor(v.color()));
+            if (++inset > 3) {
+                break;
+            }
+        }
     }
 
     private ItemStack iconForRecipe(RecipeInstance recipe) {
@@ -894,6 +1080,7 @@ public class VanillaEditorScreen extends Screen {
                 int dupX = delX - 15;
                 if (mouseX >= delX - 2) {
                     project.remove(recipe);
+                    ClientEditSession.removeRecipe(recipe);
                     if (recipe.uid().equals(selectedUid)) {
                         selectedUid = recipes.isEmpty() ? null : recipes.get(0).uid();
                     }
@@ -902,6 +1089,7 @@ public class VanillaEditorScreen extends Screen {
                     RecipeInstance copy = recipe.copy();
                     project.add(copy);
                     selectedUid = copy.uid();
+                    ClientEditSession.pushRecipe(copy);
                     rebuildWidgets();
                 } else {
                     selectedUid = recipe.uid();

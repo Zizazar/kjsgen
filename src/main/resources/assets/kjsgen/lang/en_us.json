@@ -92,6 +92,14 @@
   "kjsgen.ui.export_done": "Export finished",
   "kjsgen.export.warn_no_kubejs": "KubeJS is not installed: scripts will be written but only load once KubeJS is added.",
 
+  "kjsgen.ui.on_screen": "on: %s",
+  "kjsgen.screen.editor": "Editor",
+  "kjsgen.screen.slot": "Editing a slot",
+  "kjsgen.screen.type_picker": "Choosing a type",
+  "kjsgen.screen.projects": "Projects",
+  "kjsgen.screen.export": "Export",
+  "kjsgen.screen.code_preview": "Code preview",
+
   "kjsgen.slot_role.input": "input",
   "kjsgen.slot_role.output": "output",
   "kjsgen.slot_role.catalyst": "catalyst",

@@ -6,6 +6,7 @@ import com.zizazr.kjsgen.core.RecipeProject;
 import com.zizazr.kjsgen.core.RecipeTypeRegistry;
 import com.zizazr.kjsgen.core.RecipeValidator;
 import com.zizazr.kjsgen.integration.kubejs.KubeJsExporter;
+import com.zizazr.kjsgen.integration.net.ClientEditSession;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -38,17 +39,26 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
         EditBox fileField = new EditBox(this.font, x + 70, fieldY, w - 70, 16,
                 Component.translatable("kjsgen.ui.default_file"));
         fileField.setValue(project.defaultTargetFile());
-        fileField.setResponder(project::setDefaultTargetFile);
+        fileField.setResponder(v -> {
+            project.setDefaultTargetFile(v);
+            ClientEditSession.pushMeta();
+        });
         addRenderableWidget(fileField);
 
         CycleButton<Boolean> comments = CycleButton.onOffBuilder(project.exportComments())
                 .create(x, fieldY + 20, w, 16, Component.translatable("kjsgen.ui.export_comments"),
-                        (btn, v) -> project.setExportComments(v));
+                        (btn, v) -> {
+                            project.setExportComments(v);
+                            ClientEditSession.pushMeta();
+                        });
         addRenderableWidget(comments);
 
         CycleButton<Boolean> reloadOnExport = CycleButton.onOffBuilder(project.reloadOnExport())
                 .create(x, fieldY + 38, w, 16, Component.translatable("kjsgen.ui.reload_on_export"),
-                        (btn, v) -> project.setReloadOnExport(v));
+                        (btn, v) -> {
+                            project.setReloadOnExport(v);
+                            ClientEditSession.pushMeta();
+                        });
         addRenderableWidget(reloadOnExport);
 
         int by = dialogY + dialogH - 24;
@@ -66,6 +76,13 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
 
     private void doExport() {
         ((VanillaEditorScreen) parent).saveProject(false);
+        if (ClientEditSession.isRemote()) {
+            // Export runs on the server (writes to the server's kubejs dir, runs /reload there).
+            // The per-file summary / warnings come back as a chat message via ClientEditSession.
+            ClientEditSession.requestExport();
+            onClose();
+            return;
+        }
         try {
             KubeJsExporter.ExportResult result = KubeJsExporter.exportProject(project);
             StringBuilder info = new StringBuilder(Component.translatable("kjsgen.ui.export_done").getString());

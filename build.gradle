@@ -61,6 +61,10 @@ base {
     archivesName = mod_id
 }
 
+tasks.named('jar', Jar).configure {
+    archiveFileName = "${mod_id}-${mod_version}-${minecraft_version}-neoforge.jar"
+}
+
 // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
