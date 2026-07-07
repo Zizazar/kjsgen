@@ -66,6 +66,7 @@ public class VanillaEditorScreen extends Screen {
     private int lastSentX = Integer.MIN_VALUE;
     private int lastSentY = Integer.MIN_VALUE;
     private String lastSentState = "";
+    private SlotContent lastSentHeld = SlotContent.EMPTY;
 
     // ---- scroll state ----------------------------------------------------
     private int listScroll;
@@ -87,6 +88,13 @@ public class VanillaEditorScreen extends Screen {
 
     // ---- transient per-frame ---------------------------------------------
     private List<Component> hoverTooltip;
+
+    // ---- carried item ("in hand") ----------------------------------------
+    // Picked up from a slot (left-click) and dropped into another; middle-click stamps a copy
+    // into the slot under the cursor without emptying the hand. See interactSlot().
+    private SlotContent heldItem = SlotContent.EMPTY;
+    /** Set by interactSlot when a click lands on a slot, so mouseClicked knows not to drop the hand. */
+    private boolean slotClickedThisEvent;
 
     // ---- special editors (mechanical crafting grid / sequenced assembly) --
     private final VanillaSequencePanel sequencePanel = new VanillaSequencePanel();
@@ -382,17 +390,22 @@ public class VanillaEditorScreen extends Screen {
             int px = localMouseX - panelX;
             int py = localMouseY - panelY;
             String state = cursorStateAt(localMouseX, localMouseY);
-            if (px != lastSentX || py != lastSentY || !state.equals(lastSentState)) {
+            if (px != lastSentX || py != lastSentY || !state.equals(lastSentState)
+                    || !heldItem.equals(lastSentHeld)) {
                 lastSentX = px;
                 lastSentY = py;
                 lastSentState = state;
-                ClientEditSession.sendCursor(px, py, state);
+                lastSentHeld = heldItem;
+                ClientEditSession.sendCursor(px, py, state, heldItem);
             }
         }
     }
 
     /** The cursor sprite that best describes what the local pointer is over (sent to other viewers). */
     private String cursorStateAt(double mx, double my) {
+        if (!heldItem.isEmpty()) {
+            return "grabbing";
+        }
         if (selectedTypeHasEditorKind("sequence") && sequencePanel.isReordering()) {
             return "grabbing";
         }
@@ -561,7 +574,13 @@ public class VanillaEditorScreen extends Screen {
             }
         }
 
-        if (hoverTooltip != null) {
+        // A carried item hides the slot tooltip (it'd only cover the cursor) and follows the pointer.
+        if (!heldItem.isEmpty()) {
+            g.pose().pushPose();
+            g.pose().translate(0, 0, 300f);
+            drawSlotContent(g, mouseX - 9, mouseY - 9, heldItem);
+            g.pose().popPose();
+        } else if (hoverTooltip != null) {
             g.renderComponentTooltip(this.font, hoverTooltip, mouseX, mouseY);
         }
     }
@@ -788,13 +807,10 @@ public class VanillaEditorScreen extends Screen {
                 int sy = gridOriginY + row * 18;
                 if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
                     String key = com.zizazr.kjsgen.core.CreateSpecialModel.cellKey(row, col);
-                    if (button == 1) {
-                        recipe.setSlot(key, SlotContent.EMPTY);
-                        markDirty();
-                    } else if (this.minecraft != null) {
-                        this.minecraft.setScreen(new VanillaSlotEditScreen(this, recipe,
-                                com.zizazr.kjsgen.core.CreateSpecialModel.cellSlot(row, col)));
-                    }
+                    SlotDefinition cellDef = com.zizazr.kjsgen.core.CreateSpecialModel.cellSlot(row, col);
+                    interactSlot(button, recipe.slot(key),
+                            content -> recipe.setSlot(key, content),
+                            () -> editSlotDef(recipe, cellDef));
                     return true;
                 }
             }
@@ -804,12 +820,9 @@ public class VanillaEditorScreen extends Screen {
             SlotDefinition outDef = RecipeTypeRegistry.get(recipe.typeId())
                     .flatMap(t -> t.slot("output")).orElse(null);
             if (outDef != null) {
-                if (button == 1) {
-                    recipe.setSlot("output", SlotContent.EMPTY);
-                    markDirty();
-                } else if (this.minecraft != null) {
-                    this.minecraft.setScreen(new VanillaSlotEditScreen(this, recipe, outDef));
-                }
+                interactSlot(button, recipe.slot("output"),
+                        content -> recipe.setSlot("output", content),
+                        () -> editSlotDef(recipe, outDef));
             }
             return true;
         }
@@ -1060,10 +1073,74 @@ public class VanillaEditorScreen extends Screen {
         g.fill(x, barY, x + 2, barY + barH, VanillaTheme.ACCENT);
     }
 
+    // ------------------------------------------------------------------ carried item
+
+    /**
+     * Apply the carry/drag interaction to a single slot.
+     *
+     * <ul>
+     *   <li><b>Shift + left click</b> — open the picker (edit/choose this slot's content).</li>
+     *   <li><b>Left click</b> — with an item in hand, drop it into the slot (swapping with whatever
+     *       was there); with an empty hand, pick the slot's item up, or open the picker if empty.</li>
+     *   <li><b>Right click</b> — clear the slot.</li>
+     *   <li><b>Middle click</b> — stamp a copy of the held item into the slot (hand keeps it); with an
+     *       empty hand, clone the slot's item into the hand instead.</li>
+     * </ul>
+     *
+     * @param current   the slot's present content
+     * @param apply     writes a new content back into the slot
+     * @param openPicker opens the slot/type editor for this slot
+     */
+    private void interactSlot(int button, SlotContent current,
+                              java.util.function.Consumer<SlotContent> apply, Runnable openPicker) {
+        slotClickedThisEvent = true; // a slot swallowed this click; don't drop the held item
+        if (button == 2) { // middle: copy in either direction, never emptying anything
+            if (!heldItem.isEmpty()) {
+                apply.accept(heldItem);
+                markDirty();
+            } else if (!current.isEmpty()) {
+                heldItem = current;
+            }
+            return;
+        }
+        if (button == 1) { // right: clear the slot
+            if (!current.isEmpty()) {
+                apply.accept(SlotContent.EMPTY);
+                markDirty();
+            }
+            return;
+        }
+        // left button
+        if (hasShiftDown()) { // shift+left opens the picker
+            openPicker.run();
+        } else if (!heldItem.isEmpty()) {
+            apply.accept(heldItem);
+            heldItem = current; // swap (EMPTY if the slot was empty)
+            markDirty();
+        } else if (current.isEmpty()) {
+            openPicker.run();
+        } else {
+            heldItem = current;
+            apply.accept(SlotContent.EMPTY);
+            markDirty();
+        }
+    }
+
     // ------------------------------------------------------------------ input
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        slotClickedThisEvent = false;
+        boolean wasHolding = !heldItem.isEmpty();
+        boolean handled = doMouseClicked(mouseX, mouseY, button);
+        // Clicking anywhere that isn't a slot drops the carried item.
+        if (wasHolding && !slotClickedThisEvent) {
+            heldItem = SlotContent.EMPTY;
+        }
+        return handled;
+    }
+
+    private boolean doMouseClicked(double mouseX, double mouseY, int button) {
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
@@ -1121,12 +1198,9 @@ public class VanillaEditorScreen extends Screen {
                 int sx = canvasOriginX + slotDef.x();
                 int sy = canvasOriginY + slotDef.y();
                 if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
-                    if (button == 1) {
-                        recipe.setSlot(slotDef.key(), SlotContent.EMPTY);
-                        markDirty();
-                    } else if (this.minecraft != null) {
-                        this.minecraft.setScreen(new VanillaSlotEditScreen(this, recipe, slotDef));
-                    }
+                    interactSlot(button, recipe.slot(slotDef.key()),
+                            content -> recipe.setSlot(slotDef.key(), content),
+                            () -> editSlotDef(recipe, slotDef));
                     return true;
                 }
             }
@@ -1200,25 +1274,19 @@ public class VanillaEditorScreen extends Screen {
     private boolean clickListSlot(double mouseX, double mouseY, int button,
                                   RecipeInstance recipe, SlotDefinition def) {
         int shown = listShownCount(recipe, def);
-        for (int i = 0; i < shown; i++) {
+        List<SlotContent> entries = recipe.listSlots(def.key());
+        // entries + the trailing '+' cell all behave as carry/drag slots (the '+' cell appends)
+        for (int i = 0; i <= shown; i++) {
             int sx = listEntryX(def, i);
             int sy = listEntryY(def, i);
             if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
-                if (button == 1) {
-                    // clearing an entry removes it (unless it's the only, still-empty placeholder)
-                    recipe.setListSlot(def.key(), i, SlotContent.EMPTY);
-                    markDirty();
-                } else {
-                    openListEntryEditor(recipe, def, i);
-                }
+                int index = i;
+                SlotContent current = i < entries.size() ? entries.get(i) : SlotContent.EMPTY;
+                interactSlot(button, current,
+                        content -> recipe.setListSlot(def.key(), index, content),
+                        () -> openListEntryEditor(recipe, def, index));
                 return true;
             }
-        }
-        int px = listEntryX(def, shown);
-        int py = listEntryY(def, shown);
-        if (mouseX >= px && mouseX < px + 18 && mouseY >= py && mouseY < py + 18) {
-            openListEntryEditor(recipe, def, shown); // append a fresh entry
-            return true;
         }
         return false;
     }
@@ -1232,6 +1300,17 @@ public class VanillaEditorScreen extends Screen {
         String title = def.key() + "[" + index + "]";
         this.minecraft.setScreen(new VanillaSlotEditScreen(this, def, title, initial,
                 content -> recipe.setListSlot(def.key(), index, content)));
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // ESC while carrying an item drops it back to the cursor pool instead of closing the editor.
+        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && !heldItem.isEmpty()
+                && getFocused() == null) {
+            heldItem = SlotContent.EMPTY;
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override

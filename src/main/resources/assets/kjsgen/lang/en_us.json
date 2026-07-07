@@ -30,7 +30,7 @@
   "kjsgen.ui.target_file": "Target file",
   "kjsgen.ui.if_mod_loaded": "If mod loaded",
   "kjsgen.ui.replace_recipe": "Replace recipe",
-  "kjsgen.ui.slot_hint": "Click to edit, right-click to clear",
+  "kjsgen.ui.slot_hint": "LMB pick up/place, Shift+LMB choose, MMB copy, RMB clear",
   "kjsgen.ui.list_add": "Add another ingredient",
   "kjsgen.ui.seq_stages": "Stages",
   "kjsgen.ui.seq_add_stage": "+ Add stage",

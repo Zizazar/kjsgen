@@ -33,6 +33,11 @@ public class KjsGen {
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
+        // Register the bundled JSON recipe types (Create/Mekanism layouts) on both physical sides.
+        // The client also loads these via a resource-reload listener, but a dedicated server never
+        // loads assets/, so without this the server registry would only hold the vanilla built-ins
+        // and server-side export would silently drop every non-vanilla recipe.
+        com.zizazr.kjsgen.templates.JsonLayoutLoader.loadBundled();
         // Let addon mods contribute their own recipe types and codegen handlers.
         net.neoforged.fml.ModLoader.postEvent(new RegisterRecipeTypesEvent());
         if (!isKubeJsLoaded()) {

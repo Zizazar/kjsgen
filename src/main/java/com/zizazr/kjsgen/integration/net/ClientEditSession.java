@@ -202,7 +202,7 @@ public final class ClientEditSession {
     }
 
     /** Send our live cursor position (panel-relative) to the other operators. No-op in local mode. */
-    public static void sendCursor(int x, int y, String state) {
+    public static void sendCursor(int x, int y, String state, com.zizazr.kjsgen.core.SlotContent held) {
         if (!remote) {
             return;
         }
@@ -210,6 +210,9 @@ public final class ClientEditSession {
         body.addProperty("x", x);
         body.addProperty("y", y);
         body.addProperty("state", state);
+        if (held != null && !held.isEmpty()) {
+            body.add("held", held.toJson());
+        }
         KjsGenNet.toServer(KjsGenNet.OP_CURSOR, GSON.toJson(body));
     }
 
@@ -322,7 +325,10 @@ public final class ClientEditSession {
             ClientPresence.hideCursor(id);
             return;
         }
-        ClientPresence.updateCursor(id, body.get("x").getAsInt(), body.get("y").getAsInt(), state);
+        com.zizazr.kjsgen.core.SlotContent held = body.has("held")
+                ? com.zizazr.kjsgen.core.SlotContent.fromJson(body.getAsJsonObject("held"))
+                : com.zizazr.kjsgen.core.SlotContent.EMPTY;
+        ClientPresence.updateCursor(id, body.get("x").getAsInt(), body.get("y").getAsInt(), state, held);
     }
 
     private static boolean matches(JsonObject body) {

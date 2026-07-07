@@ -144,6 +144,9 @@ public final class ServerProjectStore {
             out.addProperty("x", body.get("x").getAsInt());
             out.addProperty("y", body.get("y").getAsInt());
         }
+        if (body.has("held")) {
+            out.add("held", body.get("held"));
+        }
         broadcast(sender, key, KjsGenNet.OP_CURSOR, GSON.toJson(out));
     }
 

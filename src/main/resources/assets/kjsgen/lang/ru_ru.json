@@ -30,7 +30,7 @@
   "kjsgen.ui.target_file": "Файл экспорта",
   "kjsgen.ui.if_mod_loaded": "Если мод загружен",
   "kjsgen.ui.replace_recipe": "Заменять рецепт",
-  "kjsgen.ui.slot_hint": "ЛКМ — изменить, ПКМ — очистить",
+  "kjsgen.ui.slot_hint": "ЛКМ — взять/положить, Shift+ЛКМ — выбрать, СКМ — копировать, ПКМ — очистить",
   "kjsgen.ui.list_add": "Добавить ещё ингредиент",
   "kjsgen.ui.seq_stages": "Этапы",
   "kjsgen.ui.seq_add_stage": "+ Добавить этап",

@@ -89,6 +89,11 @@ public final class CollabCursors {
             if (c == null || !c.visible) {
                 continue;
             }
+            // An item they're carrying is drawn under the cursor sprite (same offset the local editor
+            // uses in render()), so it reads as "held in hand" on this client too.
+            if (c.held != null && !c.held.isEmpty()) {
+                editor.drawSlotContent(g, panelX + c.x - 9, panelY + c.y - 9, c.held);
+            }
             drawCursor(g, panelX + c.x, panelY + c.y, c.state, CollabColors.colorFor(v.color()));
             drewAny = true;
         }

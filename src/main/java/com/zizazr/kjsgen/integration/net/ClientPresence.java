@@ -1,5 +1,7 @@
 package com.zizazr.kjsgen.integration.net;
 
+import com.zizazr.kjsgen.core.SlotContent;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,6 +26,8 @@ public final class ClientPresence {
         public int y;
         public String state = "default";
         public boolean visible;
+        /** The item this operator is carrying "in hand", or EMPTY. Drawn at their cursor. */
+        public SlotContent held = SlotContent.EMPTY;
     }
 
     private static final List<Viewer> viewers = new ArrayList<>();
@@ -68,11 +72,12 @@ public final class ClientPresence {
         return recipes.get(uuid);
     }
 
-    public static void updateCursor(UUID uuid, int x, int y, String state) {
+    public static void updateCursor(UUID uuid, int x, int y, String state, SlotContent held) {
         Cursor c = cursors.computeIfAbsent(uuid, k -> new Cursor());
         c.x = x;
         c.y = y;
         c.state = state == null ? "default" : state;
+        c.held = held == null ? SlotContent.EMPTY : held;
         c.visible = true;
     }
 
