@@ -20,7 +20,7 @@ public record KjsGenS2CPayload(String op, String json) implements CustomPacketPa
 
     public static final StreamCodec<ByteBuf, KjsGenS2CPayload> CODEC = StreamCodec.composite(
             ByteBufCodecs.STRING_UTF8, KjsGenS2CPayload::op,
-            ByteBufCodecs.STRING_UTF8, KjsGenS2CPayload::json,
+            ByteBufCodecs.stringUtf8(1_048_576), KjsGenS2CPayload::json,
             KjsGenS2CPayload::new);
 
     @Override

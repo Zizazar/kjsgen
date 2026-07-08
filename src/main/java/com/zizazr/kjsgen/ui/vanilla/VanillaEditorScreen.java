@@ -132,13 +132,16 @@ public class VanillaEditorScreen extends Screen {
                 .bounds(0, hy, btnWidth("kjsgen.ui.export"), hh).build();
         Button projects = Button.builder(Component.translatable("kjsgen.ui.projects"), b -> openProjects())
                 .bounds(0, hy, btnWidth("kjsgen.ui.projects"), hh).build();
+        Button importJs = Button.builder(Component.translatable("kjsgen.ui.import_js"), b -> openImport())
+                .bounds(0, hy, btnWidth("kjsgen.ui.import_js"), hh).build();
         Button save = Button.builder(Component.translatable("kjsgen.ui.save"), b -> saveProject(true))
                 .bounds(0, hy, btnWidth("kjsgen.ui.save"), hh).build();
 
         reload.setX(rightEdge - reload.getWidth());
         export.setX(reload.getX() - 4 - export.getWidth());
         projects.setX(export.getX() - 4 - projects.getWidth());
-        save.setX(projects.getX() - 4 - save.getWidth());
+        importJs.setX(projects.getX() - 4 - importJs.getWidth());
+        save.setX(importJs.getX() - 4 - save.getWidth());
 
         int nameW = 96;
         projectNameField = new EditBox(this.font, save.getX() - 6 - nameW, hy + 1, nameW, 14,
@@ -154,6 +157,7 @@ public class VanillaEditorScreen extends Screen {
 
         addRenderableWidget(projectNameField);
         addRenderableWidget(save);
+        addRenderableWidget(importJs);
         addRenderableWidget(projects);
         addRenderableWidget(export);
         addRenderableWidget(reload);
@@ -521,6 +525,31 @@ public class VanillaEditorScreen extends Screen {
         if (this.minecraft != null) {
             this.minecraft.setScreen(new VanillaProjectsScreen(this));
         }
+    }
+
+    private void openImport() {
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(new VanillaImportScreen(this));
+        }
+    }
+
+    /**
+     * Add recipes parsed from an existing KubeJS script (see {@link VanillaImportScreen}):
+     * append each to the project, push it in remote mode, and select the last one.
+     */
+    void importRecipes(List<RecipeInstance> recipes) {
+        String lastUid = null;
+        for (RecipeInstance recipe : recipes) {
+            project.add(recipe);
+            ClientEditSession.pushRecipe(recipe);
+            lastUid = recipe.uid();
+        }
+        if (lastUid != null) {
+            selectedUid = lastUid;
+            listScroll = 0;
+            paramScroll = 0;
+        }
+        rebuildWidgets();
     }
 
     private void openExport() {
