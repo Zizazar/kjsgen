@@ -1,6 +1,15 @@
 name: Build
 
-on: [push, pull_request]
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - '**'
+  pull_request:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -28,3 +37,27 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: jars
+          path: build/libs/*.jar
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: jars
+          path: build/libs
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: build/libs/*.jar
