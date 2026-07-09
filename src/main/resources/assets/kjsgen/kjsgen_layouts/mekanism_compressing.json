@@ -1,0 +1,21 @@
+{
+  "id": "kjsgen:mekanism_compressing",
+  "jei": "mekanism:compressing",
+  "mod": "mekanism",
+  "icon": "mekanism:osmium_compressor",
+  "width": 102,
+  "height": 34,
+  "slots": [
+    { "key": "input", "role": "INPUT", "x": 0, "y": 8, "required": true, "item": true, "tag": true },
+    { "key": "gas", "role": "INPUT", "x": 20, "y": 8, "required": true, "item": false, "chemical": true, "tag": true },
+    { "key": "output", "role": "OUTPUT", "x": 80, "y": 8, "required": true, "item": true, "count": true }
+  ],
+  "decorations": [
+    { "type": "ARROW", "x": 46, "y": 9 }
+  ],
+  "parameters": [
+    { "key": "__template", "type": "STRING", "default": "event.recipes.mekanism.compressing({slot:output}, {slot:input}, {slot:gas})" }
+  ],
+  "codegen": "kjsgen:template",
+  "requiresMod": "mekanism"
+}

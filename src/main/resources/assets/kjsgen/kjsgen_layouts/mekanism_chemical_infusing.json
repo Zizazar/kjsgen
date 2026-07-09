@@ -1,0 +1,21 @@
+{
+  "id": "kjsgen:mekanism_chemical_infusing",
+  "jei": "mekanism:chemical_infusing",
+  "mod": "mekanism",
+  "icon": "mekanism:chemical_infuser",
+  "width": 82,
+  "height": 36,
+  "slots": [
+    { "key": "left", "role": "INPUT", "x": 0, "y": 0, "required": true, "item": false, "chemical": true, "tag": true },
+    { "key": "right", "role": "INPUT", "x": 0, "y": 18, "required": true, "item": false, "chemical": true, "tag": true },
+    { "key": "output", "role": "OUTPUT", "x": 60, "y": 9, "required": true, "item": false, "chemical": true }
+  ],
+  "decorations": [
+    { "type": "ARROW", "x": 26, "y": 10 }
+  ],
+  "parameters": [
+    { "key": "__template", "type": "STRING", "default": "event.recipes.mekanism.chemical_infusing({slot:output}, {slot:left}, {slot:right})" }
+  ],
+  "codegen": "kjsgen:template",
+  "requiresMod": "mekanism"
+}

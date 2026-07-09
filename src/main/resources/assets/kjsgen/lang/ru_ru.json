@@ -168,5 +168,10 @@
   "kjsgen.recipe_type.kjsgen.mekanism_metallurgic_infusing": "Mekanism: Металлургическая инфузия",
   "kjsgen.recipe_type.kjsgen.mekanism_energy_conversion": "Mekanism: Преобразование энергии",
   "kjsgen.recipe_type.kjsgen.mekanism_oxidizing": "Mekanism: Окисление",
-  "kjsgen.recipe_type.kjsgen.mekanism_crystallizing": "Mekanism: Кристаллизация"
+  "kjsgen.recipe_type.kjsgen.mekanism_crystallizing": "Mekanism: Кристаллизация",
+  "kjsgen.recipe_type.kjsgen.mekanism_compressing": "Mekanism: Сжатие",
+  "kjsgen.recipe_type.kjsgen.mekanism_purifying": "Mekanism: Очистка",
+  "kjsgen.recipe_type.kjsgen.mekanism_injecting": "Mekanism: Инъекция",
+  "kjsgen.recipe_type.kjsgen.mekanism_chemical_infusing": "Mekanism: Химическая инфузия",
+  "kjsgen.recipe_type.kjsgen.mekanism_dissolution": "Mekanism: Растворение"
 }
