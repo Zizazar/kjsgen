@@ -80,6 +80,21 @@ public final class RecipeProject {
     }
 
     /**
+     * Replace the recipe with the same uid in place (preserving its list position), or append
+     * it when no recipe with that uid exists. Used by undo/redo to restore a recipe snapshot
+     * without disturbing the surrounding order.
+     */
+    public void replace(RecipeInstance recipe) {
+        for (int i = 0; i < recipes.size(); i++) {
+            if (recipes.get(i).uid().equals(recipe.uid())) {
+                recipes.set(i, recipe);
+                return;
+            }
+        }
+        recipes.add(recipe);
+    }
+
+    /**
      * Adds {@code recipe}, first dropping any existing recipe of the same type that
      * produces the same primary output — so re-capturing the same JEI recipe updates
      * the entry instead of piling up duplicates. Returns the added recipe's uid.

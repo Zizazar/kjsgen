@@ -200,6 +200,18 @@ dependencies {
     // KubeJS Create addon: provides event.recipes.create.* and the CreateItem chance-output
     // global used by the bundled create_* templates.
     localRuntime("dev.latvian.mods:kubejs-create-neoforge:${kubejs_create_version}")
+
+    // --- Unit tests. The test sourceset is intentionally NOT bound to NeoForge (see the mods
+    // block), so tests can only cover pure, MC-independent core classes (e.g. UndoStack). gson is
+    // declared explicitly because the NeoForge/MC classpath is absent from the test sourceset.
+    testImplementation platform("org.junit:junit-bom:5.10.2")
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("com.google.code.gson:gson:2.10.1")
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

@@ -22,10 +22,12 @@ import java.util.Map;
  * KubeJS scripts through {@link KubeJsExporter}.
  */
 public final class VanillaExportScreen extends VanillaDialogScreen {
+    private final VanillaEditorScreen editor;
     private final RecipeProject project;
 
     public VanillaExportScreen(VanillaEditorScreen parent) {
         super(parent, Component.translatable("kjsgen.ui.export_title"));
+        this.editor = parent;
         this.project = parent.project();
     }
 
@@ -41,7 +43,7 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
         fileField.setValue(project.defaultTargetFile());
         fileField.setResponder(v -> {
             project.setDefaultTargetFile(v);
-            ClientEditSession.pushMeta();
+            editor.scheduleMetaPush();
         });
         addRenderableWidget(fileField);
 
@@ -49,7 +51,7 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
                 .create(x, fieldY + 20, w, 16, Component.translatable("kjsgen.ui.export_comments"),
                         (btn, v) -> {
                             project.setExportComments(v);
-                            ClientEditSession.pushMeta();
+                            editor.scheduleMetaPush();
                         });
         addRenderableWidget(comments);
 
@@ -57,7 +59,7 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
                 .create(x, fieldY + 38, w, 16, Component.translatable("kjsgen.ui.reload_on_export"),
                         (btn, v) -> {
                             project.setReloadOnExport(v);
-                            ClientEditSession.pushMeta();
+                            editor.scheduleMetaPush();
                         });
         addRenderableWidget(reloadOnExport);
 

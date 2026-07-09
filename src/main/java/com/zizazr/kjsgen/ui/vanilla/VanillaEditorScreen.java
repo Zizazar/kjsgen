@@ -1,5 +1,6 @@
 package com.zizazr.kjsgen.ui.vanilla;
 
+import com.google.gson.JsonObject;
 import com.zizazr.kjsgen.KjsGen;
 import com.zizazr.kjsgen.core.LayoutDecoration;
 import com.zizazr.kjsgen.core.ParameterDefinition;
@@ -11,6 +12,8 @@ import com.zizazr.kjsgen.core.RecipeTypeRegistry;
 import com.zizazr.kjsgen.core.RecipeValidator;
 import com.zizazr.kjsgen.core.SlotContent;
 import com.zizazr.kjsgen.core.SlotDefinition;
+import com.zizazr.kjsgen.core.UndoStack;
+import com.zizazr.kjsgen.core.UndoStack.UndoAction;
 import com.zizazr.kjsgen.integration.kubejs.ScriptAssembler;
 import com.zizazr.kjsgen.integration.net.ClientEditSession;
 import com.zizazr.kjsgen.integration.net.ClientPresence;
@@ -60,6 +63,24 @@ public class VanillaEditorScreen extends Screen {
     /** Set while init()/buildParamWidgets programmatically fills widgets, so EditBox.setValue
      *  responders don't schedule spurious network pushes (which would ping-pong between clients). */
     private boolean suppressPush;
+
+    // ---- local undo/redo (this client only; see the "Undo/Redo" design note) --------------------
+    // Piggy-backs on the same debounce as the network push: a burst of edits inside one PUSH_DELAY_MS
+    // window collapses into a single undo entry, just as it collapses into a single upstream push.
+    private final UndoStack undoStack = new UndoStack();
+    /** Settled ("clean") snapshot of the selected recipe, refreshed on init and after each flush. */
+    private JsonObject recipeUndoBaseline;
+    private String recipeUndoBaselineUid;
+    /** The "before" snapshot frozen when the current recipe-edit window opened, finalized on flush. */
+    private JsonObject pendingUndoBefore;
+    private String pendingUndoUid;
+    /** Settled snapshot of the four project meta fields, mirrored like {@link #recipeUndoBaseline}. */
+    private String metaBaselineName, metaBaselineTargetFile;
+    private boolean metaBaselineComments, metaBaselineReload;
+    /** The "before" of the current meta-edit window (valid only while {@link #metaPushDue}). */
+    private boolean pendingMetaValid;
+    private String pendingMetaName, pendingMetaTargetFile;
+    private boolean pendingMetaComments, pendingMetaReload;
 
     // ---- live cursor sharing (see tick(): our mouse is broadcast to the other viewers) ----
     private int localMouseX, localMouseY;
@@ -170,6 +191,15 @@ public class VanillaEditorScreen extends Screen {
         // ----- right: parameter widgets
         buildParamWidgets();
         layoutParamWidgets();
+
+        // Refresh the undo baselines to the current settled state (unless a debounced edit is still
+        // pending — its "before" is already frozen and finalized on flush).
+        if (recipePushUid == null) {
+            captureRecipeBaseline();
+        }
+        if (!metaPushDue) {
+            captureMetaBaseline();
+        }
 
         derivedDirty = true;
         suppressPush = false;
@@ -362,6 +392,16 @@ public class VanillaEditorScreen extends Screen {
         derivedDirty = true;
         // A user edit to the selected recipe: schedule a debounced upsert to the server.
         if (!suppressPush && selectedUid != null) {
+            if (recipePushUid == null) {
+                // Window opening: freeze the pre-edit snapshot so the whole burst collapses into one
+                // undo entry. The edit already mutated the recipe, so use the settled baseline rather
+                // than the (now-dirty) current state; it falls back to the live recipe only if the
+                // baseline is for a different recipe (rare cross-recipe pending edit).
+                pendingUndoBefore = recipeUndoBaseline != null && selectedUid.equals(recipeUndoBaselineUid)
+                        ? recipeUndoBaseline
+                        : selectedRecipe().map(RecipeInstance::toJson).orElse(null);
+                pendingUndoUid = selectedUid;
+            }
             recipePushUid = selectedUid;
             recipePushDueAt = System.currentTimeMillis() + PUSH_DELAY_MS;
         }
@@ -370,6 +410,14 @@ public class VanillaEditorScreen extends Screen {
     /** Schedule a debounced push of the project's meta fields (name + export options). */
     void scheduleMetaPush() {
         if (!suppressPush) {
+            if (!metaPushDue) {
+                // Window opening: freeze the pre-edit meta baseline (see markDirty()).
+                pendingMetaName = metaBaselineName;
+                pendingMetaTargetFile = metaBaselineTargetFile;
+                pendingMetaComments = metaBaselineComments;
+                pendingMetaReload = metaBaselineReload;
+                pendingMetaValid = true;
+            }
             metaPushDue = true;
             metaPushDueAt = System.currentTimeMillis() + PUSH_DELAY_MS;
         }
@@ -383,8 +431,7 @@ public class VanillaEditorScreen extends Screen {
             flushRecipePush();
         }
         if (metaPushDue && now >= metaPushDueAt) {
-            metaPushDue = false;
-            ClientEditSession.pushMeta();
+            flushMetaPush();
         }
         // Tell the others which recipe we have open (so they can locate/highlight it, and only
         // show our cursor when they're on the same one). tickScreenReport() sends it on change.
@@ -433,13 +480,136 @@ public class VanillaEditorScreen extends Screen {
         return "default";
     }
 
-    /** Send the pending recipe upsert immediately, if any. */
+    /** Send the pending recipe upsert immediately, if any, and finalize its undo entry. */
     private void flushRecipePush() {
-        if (recipePushUid != null) {
-            String uid = recipePushUid;
-            recipePushUid = null;
-            project.recipeByUid(uid).ifPresent(ClientEditSession::pushRecipe);
+        if (recipePushUid == null) {
+            return;
         }
+        String uid = recipePushUid;
+        recipePushUid = null;
+        RecipeInstance recipe = project.recipeByUid(uid).orElse(null);
+        if (recipe != null) {
+            ClientEditSession.pushRecipe(recipe);
+            if (pendingUndoBefore != null && uid.equals(pendingUndoUid)) {
+                JsonObject after = recipe.toJson();
+                if (!after.equals(pendingUndoBefore)) {
+                    undoStack.push(new UndoAction.RecipeChanged(uid, pendingUndoBefore, after));
+                }
+            }
+        }
+        pendingUndoBefore = null;
+        pendingUndoUid = null;
+        captureRecipeBaseline(); // the recipe is settled again
+    }
+
+    /** Push the pending meta edit immediately, if any, and finalize its undo entry. */
+    private void flushMetaPush() {
+        if (!metaPushDue) {
+            return;
+        }
+        metaPushDue = false;
+        ClientEditSession.pushMeta();
+        if (pendingMetaValid) {
+            boolean changed = !pendingMetaName.equals(project.name())
+                    || !pendingMetaTargetFile.equals(project.defaultTargetFile())
+                    || pendingMetaComments != project.exportComments()
+                    || pendingMetaReload != project.reloadOnExport();
+            if (changed) {
+                undoStack.push(new UndoAction.ProjectMetaChanged(
+                        pendingMetaName, pendingMetaTargetFile, pendingMetaComments, pendingMetaReload,
+                        project.name(), project.defaultTargetFile(),
+                        project.exportComments(), project.reloadOnExport()));
+            }
+            pendingMetaValid = false;
+        }
+        captureMetaBaseline();
+    }
+
+    /** Refresh the settled recipe baseline to the currently selected recipe's state. */
+    private void captureRecipeBaseline() {
+        RecipeInstance recipe = selectedRecipe().orElse(null);
+        recipeUndoBaseline = recipe == null ? null : recipe.toJson();
+        recipeUndoBaselineUid = recipe == null ? null : recipe.uid();
+    }
+
+    /** Refresh the settled meta baseline to the project's current meta fields. */
+    private void captureMetaBaseline() {
+        metaBaselineName = project.name();
+        metaBaselineTargetFile = project.defaultTargetFile();
+        metaBaselineComments = project.exportComments();
+        metaBaselineReload = project.reloadOnExport();
+    }
+
+    // ------------------------------------------------------------------ undo/redo
+
+    void applyUndo() {
+        // Any pending debounced edit must be finalized first, so it becomes its own undo entry
+        // rather than being silently discarded by the state we are about to restore.
+        flushPending();
+        undoStack.undo().ifPresent(action -> applyAction(action, false));
+    }
+
+    void applyRedo() {
+        flushPending();
+        undoStack.redo().ifPresent(action -> applyAction(action, true));
+    }
+
+    /** Apply an action in the given direction ({@code redo} = re-apply, else undo). */
+    private void applyAction(UndoAction action, boolean redo) {
+        suppressPush = true;
+        try {
+            if (action instanceof UndoAction.RecipeChanged rc) {
+                RecipeInstance restored = RecipeInstance.fromJson(redo ? rc.after() : rc.before());
+                project.replace(restored);
+                selectedUid = rc.uid();
+                ClientEditSession.pushRecipe(restored);
+            } else if (action instanceof UndoAction.RecipeAdded ra) {
+                if (redo) {
+                    restoreRecipe(ra.snapshot());
+                } else {
+                    dropRecipe(ra.uid());
+                }
+            } else if (action instanceof UndoAction.RecipeRemoved rr) {
+                if (redo) {
+                    dropRecipe(rr.uid());
+                } else {
+                    restoreRecipe(rr.snapshot());
+                }
+            } else if (action instanceof UndoAction.ProjectMetaChanged pm) {
+                applyMeta(pm, redo);
+            }
+        } finally {
+            suppressPush = false;
+        }
+        paramScroll = 0;
+        rebuildWidgets();
+    }
+
+    /** Re-insert a recipe from a snapshot, select it, and push it upstream. */
+    private void restoreRecipe(JsonObject snapshot) {
+        RecipeInstance recipe = RecipeInstance.fromJson(snapshot);
+        project.replace(recipe);
+        selectedUid = recipe.uid();
+        ClientEditSession.pushRecipe(recipe);
+    }
+
+    /** Remove the recipe with {@code uid} (if present) and push the removal upstream. */
+    private void dropRecipe(String uid) {
+        project.recipeByUid(uid).ifPresent(recipe -> {
+            project.remove(recipe);
+            ClientEditSession.removeRecipe(recipe);
+        });
+        if (uid.equals(selectedUid)) {
+            selectedUid = project.recipes().isEmpty() ? null : project.recipes().get(0).uid();
+        }
+    }
+
+    private void applyMeta(UndoAction.ProjectMetaChanged pm, boolean redo) {
+        project.setName(redo ? pm.afterName() : pm.beforeName());
+        project.setDefaultTargetFile(redo ? pm.afterTargetFile() : pm.beforeTargetFile());
+        project.setExportComments(redo ? pm.afterComments() : pm.beforeComments());
+        project.setReloadOnExport(redo ? pm.afterReload() : pm.beforeReload());
+        ClientEditSession.pushMeta();
     }
 
     @Override
@@ -464,15 +634,17 @@ public class VanillaEditorScreen extends Screen {
 
     private void flushPending() {
         flushRecipePush();
-        if (metaPushDue) {
-            metaPushDue = false;
-            ClientEditSession.pushMeta();
-        }
+        flushMetaPush();
     }
 
     /** Re-sync the editor to the session's project after a server snapshot/delta arrived. */
     public void refreshFromSession() {
+        String prevName = project == null ? null : project.name();
         this.project = ClientEditSession.project();
+        // A different project arrived (a fresh snapshot / project switch): our history is now stale.
+        if (!java.util.Objects.equals(prevName, project.name())) {
+            undoStack.clear();
+        }
         if (selectedUid != null && project.recipeByUid(selectedUid).isEmpty()) {
             selectedUid = project.recipes().isEmpty() ? null : project.recipes().get(0).uid();
         }
@@ -503,6 +675,7 @@ public class VanillaEditorScreen extends Screen {
         this.selectedUid = newProject.recipes().isEmpty() ? null : newProject.recipes().get(0).uid();
         this.listScroll = 0;
         this.paramScroll = 0;
+        undoStack.clear();
         rebuildWidgets();
     }
 
@@ -512,6 +685,7 @@ public class VanillaEditorScreen extends Screen {
         project.add(recipe);
         selectedUid = recipe.uid();
         ClientEditSession.pushRecipe(recipe);
+        undoStack.push(new UndoAction.RecipeAdded(recipe.uid(), recipe.toJson()));
         rebuildWidgets();
     }
 
@@ -542,6 +716,7 @@ public class VanillaEditorScreen extends Screen {
         for (RecipeInstance recipe : recipes) {
             project.add(recipe);
             ClientEditSession.pushRecipe(recipe);
+            undoStack.push(new UndoAction.RecipeAdded(recipe.uid(), recipe.toJson()));
             lastUid = recipe.uid();
         }
         if (lastUid != null) {
@@ -1185,6 +1360,7 @@ public class VanillaEditorScreen extends Screen {
                 int delX = listX + listW - 16;
                 int dupX = delX - 15;
                 if (mouseX >= delX - 2) {
+                    undoStack.push(new UndoAction.RecipeRemoved(recipe.uid(), recipe.toJson()));
                     project.remove(recipe);
                     ClientEditSession.removeRecipe(recipe);
                     if (recipe.uid().equals(selectedUid)) {
@@ -1196,6 +1372,7 @@ public class VanillaEditorScreen extends Screen {
                     project.add(copy);
                     selectedUid = copy.uid();
                     ClientEditSession.pushRecipe(copy);
+                    undoStack.push(new UndoAction.RecipeAdded(copy.uid(), copy.toJson()));
                     rebuildWidgets();
                 } else {
                     selectedUid = recipe.uid();
@@ -1333,6 +1510,20 @@ public class VanillaEditorScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) undo/redo this client's own edits. Handled ahead of
+        // widget dispatch: the stock EditBox has no undo of its own, so intercepting here is safe
+        // even while a text field is focused (that field's edits ARE the recipe edits being undone).
+        if (hasControlDown()) {
+            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Z && !hasShiftDown()) {
+                applyUndo();
+                return true;
+            }
+            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Y
+                    || (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Z && hasShiftDown())) {
+                applyRedo();
+                return true;
+            }
+        }
         // ESC while carrying an item drops it back to the cursor pool instead of closing the editor.
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && !heldItem.isEmpty()
                 && getFocused() == null) {
