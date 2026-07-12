@@ -1163,7 +1163,7 @@ public class VanillaEditorScreen extends Screen {
         }
     }
 
-    private void drawPlusButton(GuiGraphics g, int x, int y, boolean hovered) {
+    void drawPlusButton(GuiGraphics g, int x, int y, boolean hovered) {
         g.fill(x + 1, y + 1, x + 17, y + 17, VanillaTheme.SECTION_BG);
         g.renderOutline(x, y, 18, 18, hovered ? VanillaTheme.ACCENT : VanillaTheme.TEXT_DIM);
         int c = hovered ? VanillaTheme.TEXT : VanillaTheme.TEXT_DIM;

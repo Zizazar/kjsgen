@@ -150,7 +150,11 @@ public final class RecipeProject {
         if (json.has("exportComments")) project.exportComments = json.get("exportComments").getAsBoolean();
         if (json.has("reloadOnExport")) project.reloadOnExport = json.get("reloadOnExport").getAsBoolean();
         if (json.has("recipes")) {
-            json.getAsJsonArray("recipes").forEach(e -> project.recipes.add(RecipeInstance.fromJson(e.getAsJsonObject())));
+            json.getAsJsonArray("recipes").forEach(e -> {
+                RecipeInstance recipe = RecipeInstance.fromJson(e.getAsJsonObject());
+                RecipeTypeRegistry.get(recipe.typeId()).ifPresent(recipe::migrateLegacyListSlots);
+                project.recipes.add(recipe);
+            });
         }
         return project;
     }
