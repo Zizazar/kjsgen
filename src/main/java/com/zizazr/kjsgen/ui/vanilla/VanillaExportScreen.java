@@ -9,7 +9,6 @@ import com.zizazr.kjsgen.integration.kubejs.KubeJsExporter;
 import com.zizazr.kjsgen.integration.net.ClientEditSession;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 
@@ -47,21 +46,19 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
         });
         addRenderableWidget(fileField);
 
-        CycleButton<Boolean> comments = CycleButton.onOffBuilder(project.exportComments())
-                .create(x, fieldY + 20, w, 16, Component.translatable("kjsgen.ui.export_comments"),
-                        (btn, v) -> {
-                            project.setExportComments(v);
-                            editor.scheduleMetaPush();
-                        });
-        addRenderableWidget(comments);
+        addRenderableWidget(new VanillaCheckbox(x, fieldY + 20, w, 16,
+                Component.translatable("kjsgen.ui.export_comments"), true, project.exportComments(),
+                v -> {
+                    project.setExportComments(v);
+                    editor.scheduleMetaPush();
+                }));
 
-        CycleButton<Boolean> reloadOnExport = CycleButton.onOffBuilder(project.reloadOnExport())
-                .create(x, fieldY + 38, w, 16, Component.translatable("kjsgen.ui.reload_on_export"),
-                        (btn, v) -> {
-                            project.setReloadOnExport(v);
-                            editor.scheduleMetaPush();
-                        });
-        addRenderableWidget(reloadOnExport);
+        addRenderableWidget(new VanillaCheckbox(x, fieldY + 38, w, 16,
+                Component.translatable("kjsgen.ui.reload_on_export"), true, project.reloadOnExport(),
+                v -> {
+                    project.setReloadOnExport(v);
+                    editor.scheduleMetaPush();
+                }));
 
         int by = dialogY + dialogH - 24;
         int bw = (w - 8) / 3;
