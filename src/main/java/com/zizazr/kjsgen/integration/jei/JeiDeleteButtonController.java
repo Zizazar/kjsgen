@@ -2,7 +2,6 @@ package com.zizazr.kjsgen.integration.jei;
 
 import com.zizazr.kjsgen.KjsGen;
 import com.zizazr.kjsgen.KjsGenClient;
-import com.zizazr.kjsgen.core.RecipeInstance;
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
 import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.gui.buttons.IButtonState;
@@ -11,25 +10,23 @@ import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.gui.inputs.IJeiUserInput;
 import mezz.jei.api.recipe.advanced.IRecipeButtonControllerFactory;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 /**
- * The per-recipe "edit in kjsgen" button JEI draws next to each recipe layout.
- * Because JEI stacks extra buttons upward from the transfer button, this lands
- * directly above the bookmark ("favorites") button. Pressing it captures the
- * recipe shown in that layout into the current kjsgen project and opens the
- * vanilla editor on it (adding a new entry, or replacing an existing recipe of
- * the same type + output).
+ * The per-recipe "remove with kjsgen" button JEI draws next to each recipe layout
+ * (stacked with the {@link JeiEditButtonController "edit"} button). Pressing it
+ * adds the shown recipe's id to the current project's removal rules and opens
+ * the removals screen on that rule.
  *
- * @see JeiRecipeCapture
- * @see KjsGenClient#openEditorWithCapturedRecipe(RecipeInstance)
+ * @see KjsGenClient#openRemovalsForRecipeId(String)
  */
-final class JeiEditButtonController implements IIconButtonController {
+final class JeiDeleteButtonController implements IIconButtonController {
     private final IDrawable icon;
-    private final IRecipeLayoutDrawable<?> layout;
+    private final ResourceLocation recipeId;
 
-    private JeiEditButtonController(IDrawable icon, IRecipeLayoutDrawable<?> layout) {
+    private JeiDeleteButtonController(IDrawable icon, ResourceLocation recipeId) {
         this.icon = icon;
-        this.layout = layout;
+        this.recipeId = recipeId;
     }
 
     @Override
@@ -39,7 +36,7 @@ final class JeiEditButtonController implements IIconButtonController {
 
     @Override
     public void getTooltips(ITooltipBuilder tooltip) {
-        tooltip.add(Component.translatable("kjsgen.jei.edit_button"));
+        tooltip.add(Component.translatable("kjsgen.jei.delete_button"));
     }
 
     @Override
@@ -49,28 +46,27 @@ final class JeiEditButtonController implements IIconButtonController {
             return true;
         }
         try {
-            RecipeInstance recipe = JeiRecipeCapture.capture(layout);
-            if (recipe != null) {
-                KjsGenClient.openEditorWithCapturedRecipe(recipe);
-            }
+            KjsGenClient.openRemovalsForRecipeId(recipeId.toString());
         } catch (Exception e) {
-            KjsGen.LOGGER.error("kjsgen: failed to open the editor from JEI", e);
+            KjsGen.LOGGER.error("kjsgen: failed to open the removals screen from JEI", e);
         }
         return true;
     }
 
     /** Registered with JEI in {@code registerAdvanced}; makes one controller per recipe layout. */
     static final class Factory implements IRecipeButtonControllerFactory {
-        private final IDrawable icon = new KjsEditIcon("jei_edit.png", 16);
+        private final IDrawable icon = new KjsEditIcon("jei_delete.png", 8);
 
         @Override
         public <T> IIconButtonController createButtonController(IRecipeLayoutDrawable<T> recipeLayoutDrawable) {
-            // Only offer the button for categories a hand-authored kjsgen layout maps to;
+            // Only datapack recipes with a registry id can be targeted by event.remove({ id }):
             // returning null tells JEI not to draw a button for this recipe.
-            if (JeiLayoutImporter.mappedTypeFor(recipeLayoutDrawable).isEmpty()) {
+            ResourceLocation id = recipeLayoutDrawable.getRecipeCategory()
+                    .getRegistryName(recipeLayoutDrawable.getRecipe());
+            if (id == null) {
                 return null;
             }
-            return new JeiEditButtonController(icon, recipeLayoutDrawable);
+            return new JeiDeleteButtonController(icon, id);
         }
     }
 }

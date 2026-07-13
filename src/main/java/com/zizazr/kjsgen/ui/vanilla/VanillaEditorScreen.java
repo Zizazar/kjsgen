@@ -169,23 +169,27 @@ public class VanillaEditorScreen extends Screen {
         // dropdown items, right-aligned under the hamburger and directly adjoining it (no gap, so the
         // hover region stays contiguous as the pointer travels from the button onto the list)
         int itemH = 16;
-        menuW = Math.max(btnWidth("kjsgen.ui.save"),
+        menuW = Math.max(Math.max(btnWidth("kjsgen.ui.save"), btnWidth("kjsgen.ui.removals")),
                 Math.max(btnWidth("kjsgen.ui.import_js"), btnWidth("kjsgen.ui.reload")));
         menuX = rightEdge - menuW;
         menuY = hy + hh;
-        menuH = 3 * itemH;
+        menuH = 4 * itemH;
         Button save = Button.builder(Component.translatable("kjsgen.ui.save"),
                         b -> { saveProject(true); menuOpen = false; })
                 .bounds(menuX, menuY, menuW, itemH).build();
         Button importJs = Button.builder(Component.translatable("kjsgen.ui.import_js"),
                         b -> { openImport(); menuOpen = false; })
                 .bounds(menuX, menuY + itemH, menuW, itemH).build();
+        Button removals = Button.builder(Component.translatable("kjsgen.ui.removals"),
+                        b -> { openRemovals(); menuOpen = false; })
+                .bounds(menuX, menuY + 2 * itemH, menuW, itemH).build();
         Button reload = Button.builder(Component.translatable("kjsgen.ui.reload"),
                         b -> { sendReloadCommand(); menuOpen = false; })
-                .bounds(menuX, menuY + 2 * itemH, menuW, itemH).build();
+                .bounds(menuX, menuY + 3 * itemH, menuW, itemH).build();
         menuItems.clear();
         menuItems.add(save);
         menuItems.add(importJs);
+        menuItems.add(removals);
         menuItems.add(reload);
         for (AbstractWidget item : menuItems) {
             item.visible = false;
@@ -203,6 +207,7 @@ public class VanillaEditorScreen extends Screen {
         // the recipe-list item icons render at z=150 and would otherwise bleed over the dropdown.
         addWidget(save);
         addWidget(importJs);
+        addWidget(removals);
         addWidget(reload);
 
         // ----- left: add recipe button (pinned to the bottom of the list column)
@@ -747,6 +752,12 @@ public class VanillaEditorScreen extends Screen {
     private void openExport() {
         if (this.minecraft != null) {
             this.minecraft.setScreen(new VanillaExportScreen(this));
+        }
+    }
+
+    private void openRemovals() {
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(new VanillaRemovalsScreen(this));
         }
     }
 

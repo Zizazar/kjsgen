@@ -112,10 +112,17 @@ public final class VanillaExportScreen extends VanillaDialogScreen {
         int y = dialogY + 26;
 
         Map<String, List<RecipeInstance>> byFile = project.recipesByTargetFile();
-        if (byFile.isEmpty()) {
+        long removalCount = project.removals().stream().filter(r -> !r.isEmpty()).count();
+        boolean hasRemovals = removalCount > 0;
+        if (byFile.isEmpty() && !hasRemovals) {
             g.drawString(this.font, Component.translatable("kjsgen.ui.export_empty"), x, y, VanillaTheme.ERROR, true);
             y += 12;
         } else {
+            if (hasRemovals) {
+                g.drawString(this.font, Component.translatable("kjsgen.ui.export_removals", removalCount),
+                        x, y, VanillaTheme.TEXT, true);
+                y += 11;
+            }
             for (Map.Entry<String, List<RecipeInstance>> e : byFile.entrySet()) {
                 String line = "server_scripts/" + KubeJsExporter.sanitizeFileName(e.getKey())
                         + ".js  —  " + e.getValue().size();
